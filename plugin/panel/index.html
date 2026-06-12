@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resolve AI Editor</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>Resolve <span>AI</span> Editor</h1>
+  <div id="conn" class="badge">connecting…</div>
+</header>
+
+<nav id="tabs">
+  <button data-tab="autocut" class="active">Auto-Cut</button>
+  <button data-tab="assets">Assets (SFX/VFX)</button>
+  <button data-tab="sound">Sound</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+
+<main>
+  <!-- ============ AUTO-CUT ============ -->
+  <section id="tab-autocut" class="tab active">
+    <div class="card" id="status-card">
+      <h2>Timeline</h2>
+      <table id="status-table">
+        <tr><td>Project</td><td id="st-project">–</td></tr>
+        <tr><td>Timeline</td><td id="st-timeline">–</td></tr>
+        <tr><td>FPS</td><td id="st-fps">–</td></tr>
+        <tr><td>Clips (V1)</td><td id="st-clips">–</td></tr>
+        <tr><td>Detector</td><td id="st-detector">–</td></tr>
+      </table>
+      <p id="st-error" class="error hidden"></p>
+    </div>
+
+    <div class="card">
+      <h2>One-Click Raw Cut</h2>
+      <p class="muted">Detects silences &amp; breathing pauses locally
+        (ffmpeg/VAD — no API costs) and builds a <b>new</b> timeline
+        "<i>&lt;name&gt; [AI Raw Cut]</i>". Your original timeline is never
+        modified — to undo, simply delete the generated timeline.</p>
+      <button id="btn-rawcut" class="primary">✂ Create Raw Cut</button>
+      <pre id="job-log" class="hidden"></pre>
+      <div id="job-report" class="hidden"></div>
+    </div>
+  </section>
+
+  <!-- ============ ASSETS ============ -->
+  <section id="tab-assets" class="tab">
+    <div class="card">
+      <h2>SFX / VFX Library</h2>
+      <p class="muted">Coming in <b>Phase 4</b>: connect local folders, index
+        your effects with cached AI tags, then either auto-place them or get a
+        recommended list (what, where, why) without touching the timeline.</p>
+      <p class="phase-badge">Planned — not yet implemented (no fake buttons here)</p>
+    </div>
+  </section>
+
+  <!-- ============ SOUND ============ -->
+  <section id="tab-sound" class="tab">
+    <div class="card">
+      <h2>Sound Research</h2>
+      <p class="muted">Coming in <b>Phase 5</b>: three background-music
+        suggestions per genre. Two modes: <b>royalty-free/commercial</b>
+        (licensed libraries, license info included) and an optional,
+        clearly-labelled best-effort trend mode that stays <b>off by
+        default</b>. There is no official TikTok/Instagram trend-sound API —
+        this plugin will not scrape.</p>
+      <p class="phase-badge">Planned — not yet implemented (no fake buttons here)</p>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section id="tab-settings" class="tab">
+    <div class="card">
+      <h2>Auto-Cut Parameters</h2>
+      <form id="settings-form">
+        <label>Silence threshold (dB)
+          <input type="number" step="1" name="noise_db" min="-60" max="-10">
+          <small>Quieter than this counts as silence. Lower = keep more.</small>
+        </label>
+        <label>Min. pause length (s)
+          <input type="number" step="0.05" name="min_silence" min="0.1" max="5">
+          <small>Pauses shorter than this are never cut.</small>
+        </label>
+        <label>Padding (s)
+          <input type="number" step="0.01" name="padding" min="0" max="1">
+          <small>Kept before/after each speech segment (natural feel).</small>
+        </label>
+        <label>Min. segment length (s)
+          <input type="number" step="0.05" name="min_keep" min="0" max="2">
+          <small>Drops flash-frame slivers shorter than this.</small>
+        </label>
+        <label class="row">
+          <input type="checkbox" name="use_vad">
+          Use voice activity detection (webrtcvad) when installed
+        </label>
+        <label>VAD aggressiveness (0–3)
+          <input type="number" step="1" name="vad_aggressiveness" min="0" max="3">
+        </label>
+        <button type="submit" class="primary">Save</button>
+        <span id="settings-saved" class="hidden">✓ saved</span>
+      </form>
+    </div>
+    <div class="card">
+      <h2>AI Providers</h2>
+      <p class="muted">Coming in <b>Phase 2</b>: Claude / OpenAI / OpenRouter /
+        custom endpoints, secure key storage in your OS keychain, model
+        routing and a cost estimator. Phase 1 runs 100% local.</p>
+      <p class="phase-badge">Planned — not yet implemented</p>
+    </div>
+  </section>
+</main>
+
+<footer><span id="version"></span> · local only · no telemetry</footer>
+<script src="/static/app.js"></script>
+</body>
+</html>

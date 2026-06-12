@@ -1,0 +1,80 @@
+/* Resolve-like dark theme, no framework */
+:root {
+  --bg: #1b1b1d; --panel: #28282b; --line: #3a3a3e;
+  --text: #d8d8da; --muted: #909094; --accent: #e6772e; --ok: #6abf69;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 18px; border-bottom: 1px solid var(--line);
+}
+h1 { font-size: 17px; margin: 0; font-weight: 600; }
+h1 span { color: var(--accent); }
+h2 { font-size: 14px; margin: 0 0 10px; color: var(--text); }
+
+.badge {
+  font-size: 12px; padding: 3px 10px; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--line);
+}
+.badge.ok { color: var(--ok); border-color: var(--ok); }
+.badge.bad { color: #e05c5c; border-color: #e05c5c; }
+
+nav { display: flex; gap: 2px; padding: 8px 18px 0; border-bottom: 1px solid var(--line); }
+nav button {
+  background: none; border: none; color: var(--muted); padding: 8px 14px;
+  cursor: pointer; font-size: 13px; border-bottom: 2px solid transparent;
+}
+nav button.active { color: var(--text); border-bottom-color: var(--accent); }
+
+main { padding: 16px 18px; max-width: 760px; margin: 0 auto; }
+.tab { display: none; }
+.tab.active { display: block; }
+
+.card {
+  background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 16px; margin-bottom: 14px;
+}
+.muted { color: var(--muted); }
+.error { color: #e05c5c; }
+.hidden { display: none; }
+.phase-badge {
+  display: inline-block; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 6px; padding: 4px 10px;
+}
+
+#status-table td { padding: 2px 14px 2px 0; }
+#status-table td:first-child { color: var(--muted); }
+
+button.primary {
+  background: var(--accent); color: #1b1b1d; border: none; font-weight: 600;
+  padding: 9px 18px; border-radius: 6px; cursor: pointer; font-size: 14px;
+}
+button.primary:disabled { opacity: .5; cursor: wait; }
+
+pre#job-log {
+  background: #161617; border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px; font-size: 12px; max-height: 160px; overflow-y: auto;
+  white-space: pre-wrap;
+}
+#job-report { margin-top: 10px; }
+#job-report .stat { display: inline-block; margin-right: 18px; }
+#job-report .stat b { display: block; font-size: 18px; color: var(--ok); }
+
+form label { display: block; margin-bottom: 12px; }
+form label.row { display: flex; gap: 8px; align-items: center; }
+form input[type=number] {
+  display: block; width: 120px; margin-top: 3px; padding: 6px 8px;
+  background: #161617; color: var(--text);
+  border: 1px solid var(--line); border-radius: 5px;
+}
+form small { display: block; color: var(--muted); }
+#settings-saved { color: var(--ok); margin-left: 10px; }
+
+footer {
+  text-align: center; color: var(--muted); font-size: 11px;
+  padding: 14px; border-top: 1px solid var(--line); margin-top: 20px;
+}
