@@ -1,0 +1,8 @@
+# Phase 1 has ZERO hard Python dependencies beyond the standard library.
+# ffmpeg must be installed on the system (see INSTALL.md).
+#
+# Optional, for better voice activity detection (auto-detected at runtime):
+# webrtcvad==2.0.10
+#
+# Development / tests:
+# pytest>=7.0

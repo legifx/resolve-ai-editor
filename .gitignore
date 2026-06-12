@@ -1,0 +1,23 @@
+# Secrets & local config — never commit keys
+config/local_settings.json
+config/keys.enc
+*.key
+.env
+.env.*
+
+# Caches
+__pycache__/
+*.pyc
+.pytest_cache/
+.cache/
+analysis_cache/
+
+# Temp media artifacts from analysis
+*.tmp.wav
+tmp/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
