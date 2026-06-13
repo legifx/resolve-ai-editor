@@ -97,14 +97,55 @@
   <!-- ============ SOUND ============ -->
   <section id="tab-sound" class="tab">
     <div class="card">
-      <h2>Sound Research</h2>
-      <p class="muted">Coming in <b>Phase 5</b>: three background-music
-        suggestions per genre. Two modes: <b>royalty-free/commercial</b>
-        (licensed libraries, license info included) and an optional,
-        clearly-labelled best-effort trend mode that stays <b>off by
-        default</b>. There is no official TikTok/Instagram trend-sound API —
-        this plugin will not scrape.</p>
-      <p class="phase-badge">Planned — not yet implemented (no fake buttons here)</p>
+      <h2>Video Context</h2>
+      <p class="muted">Optional filters used by sound research (and asset
+        matching). Fill them in, or let AI suggest them from your timeline.</p>
+      <label class="row">Audience
+        <input type="text" id="ctx-audience" style="width:240px"
+               placeholder="e.g. young adults, professionals"></label>
+      <label class="row">Genre
+        <input type="text" id="ctx-genre" style="width:240px"
+               placeholder="e.g. travel vlog, product ad"></label>
+      <label class="row">Topic
+        <input type="text" id="ctx-topic" style="width:240px"
+               placeholder="e.g. beach trip, SaaS launch"></label>
+      <p>
+        <button id="ctx-save">Save context</button>
+        <button id="ctx-suggest">✨ Auto-suggest from timeline</button>
+        <label class="row" style="display:inline-flex;margin-left:10px">
+          <input type="checkbox" id="ctx-use-frames"> sample frames (vision)
+        </label>
+      </p>
+      <p id="ctx-result" class="muted"></p>
+    </div>
+
+    <div class="card">
+      <h2>Background Sound Research</h2>
+      <p class="muted">Three music directions for your video, pointing at
+        licensed / royalty-free sources — license always shown.</p>
+      <p>
+        <label class="row" style="display:inline-flex">
+          <input type="radio" name="sound-mode" value="royalty_free" checked>
+          Royalty-free / commercial</label>
+        <label class="row" style="display:inline-flex;margin-left:14px">
+          <input type="radio" name="sound-mode" value="trend">
+          Trend (off by default)</label>
+      </p>
+      <div id="trend-config" class="hidden">
+        <label class="row">
+          <input type="checkbox" id="trend-enabled"> Enable trend module
+          (I understand it makes no hidden requests)</label>
+        <label class="row">Permitted source
+          <input type="text" id="trend-source" style="width:260px"
+                 placeholder="a source you have the right to query"></label>
+        <button id="trend-save">Save trend settings</button>
+        <p class="muted" style="font-size:11px">There is no official,
+          ToS-compliant API for TikTok/Instagram trend sounds. This plugin
+          never scrapes; trend mode only ever returns search terms for you to
+          check yourself.</p>
+      </div>
+      <p><button id="sound-research" class="primary">Get suggestions</button></p>
+      <div id="sound-result"></div>
     </div>
   </section>
 

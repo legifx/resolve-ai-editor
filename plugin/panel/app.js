@@ -251,6 +251,121 @@ $("#assets-place").addEventListener("click", async () => {
   refreshStatus();
 });
 
+/* ---- context & sound ---- */
+async function loadContext() {
+  let s;
+  try { s = await api("/api/context"); } catch (e) { return; }
+  const c = s.context || {};
+  $("#ctx-audience").value = c.audience || "";
+  $("#ctx-genre").value = c.genre || "";
+  $("#ctx-topic").value = c.topic || "";
+  $("#trend-enabled").checked = !!s.trend_enabled;
+  $("#trend-source").value = s.trend_source || "";
+}
+function ctxFields() {
+  return {
+    audience: $("#ctx-audience").value,
+    genre: $("#ctx-genre").value,
+    topic: $("#ctx-topic").value,
+  };
+}
+$("#ctx-save").addEventListener("click", async () => {
+  await api("/api/context", {
+    method: "POST", body: JSON.stringify({ context: ctxFields() }),
+  });
+  $("#ctx-result").textContent = "✓ saved";
+});
+$("#ctx-suggest").addEventListener("click", async () => {
+  $("#ctx-result").textContent = "analyzing timeline…";
+  const r = await api("/api/context/suggest", {
+    method: "POST",
+    body: JSON.stringify({ use_frames: $("#ctx-use-frames").checked }),
+  });
+  if (r.error) { $("#ctx-result").textContent = "✗ " + r.error; return; }
+  const s = r.suggestion;
+  $("#ctx-audience").value = s.audience || "";
+  $("#ctx-genre").value = s.genre || "";
+  $("#ctx-topic").value = s.topic || "";
+  $("#ctx-result").textContent = "Suggested (" + s.confidence +
+    " confidence, " + s.basis + ") — edit and Save if good." +
+    (s.note ? "  Note: " + s.note : "");
+});
+
+document.querySelectorAll('input[name="sound-mode"]').forEach(r =>
+  r.addEventListener("change", () => {
+    $("#trend-config").classList.toggle("hidden",
+      document.querySelector('input[name="sound-mode"]:checked').value !== "trend");
+  }));
+$("#trend-save").addEventListener("click", async () => {
+  await api("/api/context", {
+    method: "POST",
+    body: JSON.stringify({
+      context: ctxFields(),
+      trend_enabled: $("#trend-enabled").checked,
+      trend_source: $("#trend-source").value,
+    }),
+  });
+});
+
+$("#sound-research").addEventListener("click", async () => {
+  const mode = document.querySelector('input[name="sound-mode"]:checked').value;
+  // save context first so research uses the latest fields
+  await api("/api/context", {
+    method: "POST", body: JSON.stringify({ context: ctxFields() }),
+  });
+  $("#sound-result").textContent = "researching…";
+  const r = await api("/api/sound/research", {
+    method: "POST", body: JSON.stringify({ mode }),
+  });
+  renderSound(r);
+});
+
+function renderSound(r) {
+  const out = $("#sound-result");
+  out.textContent = "";
+  if (r.error) { out.textContent = "✗ " + r.error; return; }
+  if (r.message) {
+    const m = document.createElement("p");
+    m.className = "muted"; m.textContent = r.message;
+    out.appendChild(m);
+  }
+  for (const s of r.suggestions || []) {
+    const d = document.createElement("div");
+    d.style.marginBottom = "8px";
+    if (s.style) {
+      const t = document.createElement("b"); t.textContent = s.style;
+      d.appendChild(t);
+      d.appendChild(document.createTextNode(" — " + (s.description || "")));
+    }
+    const terms = document.createElement("div");
+    terms.className = "muted"; terms.style.fontSize = "12px";
+    terms.textContent = "Search: " + (s.search_terms || []).join(", ") +
+      (s.recommended_source
+        ? "  ·  " + s.recommended_source + " (" + s.license +
+          (s.commercial_ok ? ", commercial OK)" : ")") : "");
+    d.appendChild(terms);
+    out.appendChild(d);
+  }
+  if (r.sources && r.sources.length) {
+    const h = document.createElement("p");
+    h.className = "muted"; h.style.marginBottom = "2px";
+    h.textContent = "Royalty-free sources" +
+      (r.license_note ? " — " + r.license_note : "") + ":";
+    out.appendChild(h);
+    const ul = document.createElement("ul");
+    ul.className = "muted"; ul.style.margin = "0 0 0 18px";
+    for (const src of r.sources) {
+      const li = document.createElement("li");
+      li.textContent = src.name + " — " + src.license +
+        (src.commercial_ok ? " (commercial OK" : " (")
+        + (src.attribution_required ? ", attribution required)" : ")") +
+        "  " + src.url;
+      ul.appendChild(li);
+    }
+    out.appendChild(ul);
+  }
+}
+
 /* ---- AI providers ---- */
 async function loadAiStatus() {
   let s;
@@ -350,5 +465,6 @@ refreshStatus();
 loadSettings();
 loadProfiles();
 loadAssets();
+loadContext();
 loadAiStatus();
 setInterval(refreshStatus, 5000);

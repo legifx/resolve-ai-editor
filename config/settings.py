@@ -30,6 +30,11 @@ DEFAULTS = {
 
     # Assets (Phase 4)
     "asset_folders": [],       # SFX/VFX library folders to index
+
+    # Context & Sound (Phase 5)
+    "context": {"audience": "", "genre": "", "topic": ""},
+    "sound_trend_enabled": False,   # trend module is OFF by default
+    "sound_trend_source": "",       # a source the user is permitted to query
 }
 
 

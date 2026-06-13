@@ -22,6 +22,8 @@ from core.ai.router import DEFAULT_ROUTING, TIERS, get_provider_for_tier
 from core.analyze.vad import HAS_WEBRTCVAD
 from core.assets import build_index, place_assets, recommend
 from core.assets.index import load_index
+from core.context import suggest_context
+from core.sound import MODES, research
 from core.cut import run_raw_cut
 from core.cut.profiles import DEFAULT_PROFILE, PROFILES
 from core.timeline.bridge import CapabilityError
@@ -123,6 +125,13 @@ class _Handler(BaseHTTPRequestHandler):
             })
         if path == "/api/assets/status":
             return self._json(self._assets_status())
+        if path == "/api/context":
+            cfg = settings.load()
+            return self._json({
+                "context": cfg.get("context", {}),
+                "trend_enabled": cfg.get("sound_trend_enabled", False),
+                "trend_source": cfg.get("sound_trend_source", ""),
+            })
         self._json({"error": "not found"}, 404)
 
     def _assets_status(self):
@@ -197,7 +206,60 @@ class _Handler(BaseHTTPRequestHandler):
             return self._assets_recommend(bool(payload.get("use_ai")))
         if path == "/api/assets/place":
             return self._assets_place(bool(payload.get("use_ai")))
+        if path == "/api/context":
+            return self._context_save(payload)
+        if path == "/api/context/suggest":
+            return self._context_suggest(bool(payload.get("use_frames")))
+        if path == "/api/sound/research":
+            return self._sound_research(payload)
         self._json({"error": "not found"}, 404)
+
+    # ---- context & sound ----
+
+    def _context_save(self, payload):
+        ctx = payload.get("context") or {}
+        clean = {k: str(ctx.get(k, "")) for k in ("audience", "genre", "topic")}
+        update = {"context": clean}
+        if "trend_enabled" in payload:
+            update["sound_trend_enabled"] = bool(payload["trend_enabled"])
+        if "trend_source" in payload:
+            update["sound_trend_source"] = str(payload["trend_source"])
+        settings.save(update)
+        return self._json({"ok": True, "context": clean})
+
+    def _provider_or_none(self):
+        try:
+            provider = get_provider_for_tier("complex", settings.load())
+            ok, reason = provider.available()
+            return (provider, None) if ok else (None, reason)
+        except AIError as exc:
+            return None, str(exc)
+
+    def _context_suggest(self, use_frames):
+        provider, reason = self._provider_or_none()
+        if provider is None:
+            return self._json({"error": "AI provider needed: " + (reason or "")})
+        try:
+            out = suggest_context(self.state.bridge, provider,
+                                  use_frames=use_frames)
+        except (AIError, CapabilityError, Exception) as exc:
+            return self._json({"error": str(exc)})
+        return self._json({"ok": True, "suggestion": out})
+
+    def _sound_research(self, payload):
+        mode = payload.get("mode", "royalty_free")
+        if mode not in MODES:
+            return self._json({"error": "unknown mode"}, 400)
+        cfg = settings.load()
+        provider, _ = self._provider_or_none()  # None is fine — falls back
+        try:
+            result = research(
+                cfg.get("context", {}), mode=mode, provider=provider,
+                trend_enabled=cfg.get("sound_trend_enabled", False),
+                trend_source=cfg.get("sound_trend_source", ""))
+        except Exception as exc:
+            return self._json({"error": str(exc)})
+        return self._json(result)
 
     # ---- assets ----
 
