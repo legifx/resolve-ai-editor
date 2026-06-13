@@ -115,3 +115,29 @@ def test_all_get_endpoints_respond(panel):
         code, body = _req(base, token, path)
         assert code == 200, path
         assert body is not None, path
+
+
+def test_static_assets_load_without_token(panel):
+    """The browser fetches CSS/JS from token-less <link>/<script> tags — they
+    MUST load without a token, or the page renders unstyled and dead."""
+    import urllib.request
+    base, _token, _ = panel
+    for path, ctype in (("/", "text/html"),
+                        ("/static/style.css", "text/css"),
+                        ("/static/app.js", "application/javascript")):
+        with urllib.request.urlopen(base + path) as r:  # no token at all
+            assert r.status == 200, path
+            assert ctype in r.headers.get("Content-Type", ""), path
+            assert len(r.read()) > 0, path
+
+
+def test_api_still_requires_token(panel):
+    """The /api/* surface must stay protected even though static files don't."""
+    import urllib.request
+    import urllib.error
+    base, _token, _ = panel
+    try:
+        urllib.request.urlopen(base + "/api/status")  # no token
+        assert False, "API should reject a token-less request"
+    except urllib.error.HTTPError as e:
+        assert e.code == 403

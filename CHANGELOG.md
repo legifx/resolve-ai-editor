@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1 — Fix: unstyled panel / dead buttons (2026-06-13)
+
+- **Bug:** the panel loaded as unstyled HTML and no buttons worked. The
+  server required the session token on *every* request, but the browser
+  fetches `/static/style.css` and `/static/app.js` from plain
+  `<link>`/`<script>` tags that carry no token — so CSS and JS were
+  rejected with 403 and never loaded.
+- **Fix:** static UI assets (`/`, `/static/*`) are now served without the
+  token (they contain no secrets); only `/api/*` stays token-protected.
+  `app.js` still reads the token from the page URL and sends it on every
+  API call. Added 2 tests pinning this down. 128 total.
+
 ## 1.1.0 — Better installer (2026-06-13)
 
 - `install.py` is now a proper installer: pre-flight checks (Python

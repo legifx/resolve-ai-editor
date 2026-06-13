@@ -29,7 +29,7 @@ from core.cut.profiles import DEFAULT_PROFILE, PROFILES
 from core.timeline.bridge import CapabilityError
 
 PANEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "panel")
-VERSION = "1.0.0"
+VERSION = "1.1.1"
 
 _MIME = {".html": "text/html; charset=utf-8",
          ".js": "application/javascript", ".css": "text/css"}
@@ -101,13 +101,18 @@ class _Handler(BaseHTTPRequestHandler):
 
     # ---- routes ----
     def do_GET(self):
-        if not self._authorized():
-            return self._json({"error": "unauthorized"}, 403)
         path = urlparse(self.path).path
+        # Static UI assets are NOT sensitive and must load without a token —
+        # the browser fetches /static/style.css and /static/app.js from plain
+        # <link>/<script> tags that carry no token. app.js then reads the
+        # token from the page URL (?token=…) and sends it on every API call.
+        # Only /api/* is token-protected (it touches Resolve + keys).
         if path == "/":
             return self._file("index.html")
         if path.startswith("/static/"):
             return self._file(path[len("/static/"):])
+        if not self._authorized():
+            return self._json({"error": "unauthorized"}, 403)
         if path == "/api/status":
             info = self.state.bridge.project_info()
             return self._json({"resolve": info, "vad_available": HAS_WEBRTCVAD,
