@@ -6,7 +6,7 @@ from config import settings
 from core.cut import run_raw_cut
 from core.timeline.bridge import CapabilityError, ResolveBridge
 from core.timeline.mock import (MockMediaPoolItem, MockProject, MockResolve,
-                                MockTimelineItem)
+                                MockTimeline, MockTimelineItem)
 
 
 def make_resolve(wav, n_clips=1):
@@ -80,3 +80,38 @@ def test_settings_roundtrip():
     assert saved["noise_db"] == -40.0
     assert "bogus_key" not in saved
     assert settings.load()["noise_db"] == -40.0
+
+
+def make_resolve_res(wav, width, height):
+    resolve = MockResolve(MockProject(fps=25.0))
+    tl = MockTimeline("Src", 25.0, width=width, height=height)
+    resolve.project.current_timeline = tl
+    resolve.project.timelines = [tl]
+    tl.items = [MockTimelineItem("c", 0, 150, 0, MockMediaPoolItem(wav, 25.0))]
+    return resolve
+
+
+def test_profile_report_fields(tone_silence_wav):
+    resolve = make_resolve_res(tone_silence_wav, 1920, 1080)
+    report = run_raw_cut(ResolveBridge(resolve), settings.load(),
+                         profile_key="short")
+    assert report["profile"] == "Short (TikTok / Reels / Shorts)"
+    assert report["aspect_ratio"] == "9:16"
+    assert report["recommendations"]
+    # 16:9 timeline vs 9:16 profile -> warning
+    assert report["aspect_warning"] and "9:16" in report["aspect_warning"]
+
+
+def test_profile_aspect_match_no_warning(tone_silence_wav):
+    resolve = make_resolve_res(tone_silence_wav, 1080, 1920)  # 9:16 source
+    report = run_raw_cut(ResolveBridge(resolve), settings.load(),
+                         profile_key="short")
+    assert report["aspect_warning"] is None
+
+
+def test_no_profile_no_profile_fields(tone_silence_wav):
+    resolve = make_resolve_res(tone_silence_wav, 1920, 1080)
+    report = run_raw_cut(ResolveBridge(resolve), settings.load())
+    assert "profile" not in report
+    assert "aspect_warning" not in report
+

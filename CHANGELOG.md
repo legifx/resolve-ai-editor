@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0 — Phase 3: Edit Profiles (2026-06-13)
+
+- `core/cut/profiles.py`: three editing profiles with real, documented
+  heuristics:
+  - **Long-form (YouTube, 16:9)** — natural pacing, more breathing room,
+    4 s hook protection.
+  - **Short (TikTok/Reels/Shorts, 9:16)** — aggressive pause removal,
+    1 s hook, edit points every 4 s for pattern interrupts.
+  - **Ad/Promo (16:9)** — tight pacing, 2.5 s hook protection, edit
+    points for product shot + CTA.
+- Each profile applies what the Free API can actually do (pacing via cut
+  params, hook protection, pacing edit points) and surfaces a checklist
+  of techniques it cannot automate (J/L-cuts, captions, reframe,
+  beat-sync) as honest recommendations — never faked.
+- Engine: `split_long()` pacing subdivision; `segments_for_clip()` hook
+  protection (force-keep opening N s, exempt from the min-keep filter)
+  and max-segment subdivision.
+- Aspect-ratio check: warns when the timeline format differs from the
+  profile target (no fake reframe). Source resolution captured before the
+  new timeline becomes current.
+- Panel: Edit-profile dropdown in the Auto-Cut tab; report shows profile,
+  aspect warning, and the recommendations checklist.
+- 17 new tests (profiles, split/hook/pacing, aspect check, per-profile
+  integration). 67 total.
+
 ## 0.2.0 — Phase 2: AI Layer (2026-06-13)
 
 - Multi-provider abstraction (`core/ai`): one `AIProvider` interface,

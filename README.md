@@ -3,11 +3,11 @@
 **AI-assisted auto-editing for DaVinci Resolve — one click from raw footage
 to a clean rough cut.** Open source (MIT), local-first, no telemetry.
 
-> Status: **Phases 1–2 done.** The one-click raw cut works end-to-end
-> (Phase 1) and the multi-provider AI layer with secure key storage, model
-> routing and a cost estimator is in place (Phase 2). Cut profiles, SFX/VFX
-> assets and sound research are planned phases (see roadmap) and are shown
-> as honest placeholders in the UI.
+> Status: **Phases 1–3 done.** One-click raw cut (Phase 1), multi-provider
+> AI layer with secure key storage + model routing + cost estimator
+> (Phase 2), and per-format edit profiles with documented heuristics
+> (Phase 3). SFX/VFX assets and sound research are planned phases (see
+> roadmap) and are shown as honest placeholders in the UI.
 
 ![panel screenshot placeholder](docs/screenshot-panel.png)
 *(screenshot/GIF placeholder)*
@@ -39,8 +39,37 @@ to a clean rough cut.** Open source (MIT), local-first, no telemetry.
   as flash frames.
 - Overlapping padded segments are **merged** to avoid zero-length gaps.
 
-These heuristics are documented in `core/cut/engine.py` and will grow into
-full editing profiles (long-form / shorts / ads) in Phase 3.
+These heuristics are documented in `core/cut/engine.py`.
+
+## Edit profiles (Phase 3)
+
+The same footage is cut differently for a 20-minute YouTube video than for
+a 30-second TikTok. Pick a profile in the Auto-Cut tab and it tunes the cut
+for that format. Defined in `core/cut/profiles.py`:
+
+| Profile | Aspect | Pacing | Hook protection | Edit points |
+|---|---|---|---|---|
+| **Long-form (YouTube)** | 16:9 | natural — keeps breathing room (longer min-pause, more padding) | first **4 s** | none — shots breathe |
+| **Short (TikTok/Reels)** | 9:16 | aggressive — cuts pauses tightly for high energy | first **1 s** | every **4 s** (pattern interrupts) |
+| **Ad / Promo** | 16:9 | tight but not frantic | first **2.5 s** | every **6 s** (product shot / CTA) |
+
+**What a profile actually does to the cut** (all local, no LLM, no fakery):
+
+- **Pacing** — long-form keeps more of the natural rhythm; Short strips
+  pauses hard for that fast, punchy feel.
+- **Hook protection** — the opening N seconds of the footage are *never*
+  cut, so your cold-open / hook stays intact (a hard cut 0.5 s in kills it).
+- **Edit points** — long kept stretches are subdivided into cut points so
+  you have a place to drop B-roll or a pattern interrupt. The clip still
+  plays seamlessly; this gives you the edit point, it does **not** generate
+  a visual effect.
+
+**What a profile only recommends** — because the Resolve *Free* API can't do
+it from audio alone, the plugin tells you instead of pretending to: J-/L-cuts
+on dialogue, auto-captions, aspect-ratio reframing (Studio "Smart Reframe" or
+manual), and music beat-syncing. These appear as a checklist in the result,
+and an aspect-ratio mismatch (e.g. a 16:9 timeline with the Short profile)
+raises a clear warning — the plugin never alters your picture.
 
 ## Installation
 
@@ -95,8 +124,9 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 2. ✅ **Phase 2 — AI layer:** multi-provider abstraction (Anthropic Claude,
    OpenAI, OpenRouter free tier, generic OpenAI-compatible endpoints), key
    management, model routing, token/cost estimator.
-3. **Phase 3 — Cut profiles:** long-form / shorts / ad pacing, hook logic,
-   J/L-cuts, aspect-ratio handling.
+3. ✅ **Phase 3 — Cut profiles:** long-form / shorts / ad pacing, hook
+   protection, pacing edit points, aspect-ratio warnings, and an honest
+   recommendations checklist for non-automatable techniques.
 4. **Phase 4 — Assets:** SFX/VFX folder indexing with cached AI tags;
    auto-placement *and* recommendation-list mode.
 5. **Phase 5 — Context & sound:** audience/genre/topic filters with
@@ -107,7 +137,7 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 ## Development
 
 ```bash
-python3 -m pytest tests/      # 50 tests, needs ffmpeg, no Resolve required
+python3 -m pytest tests/      # 67 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 
