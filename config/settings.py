@@ -20,6 +20,13 @@ DEFAULTS = {
     "min_keep": 0.25,        # drop speech slivers shorter than this
     "use_vad": True,         # prefer webrtcvad when installed
     "vad_aggressiveness": 2, # 0..3
+
+    # AI layer (Phase 2) — keys live in the OS keychain, NOT here
+    "ai_routing": {
+        "routine": {"provider": "openrouter", "model": "openrouter/auto"},
+        "complex": {"provider": "anthropic", "model": "claude-opus-4-8"},
+    },
+    "ai_custom_base_url": "",  # for 'custom' OpenAI-compatible endpoints
 }
 
 
