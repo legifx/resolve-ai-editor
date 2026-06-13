@@ -73,3 +73,7 @@ Support/resolve-ai-editor` (macOS), `%APPDATA%\resolve-ai-editor` (Windows).
 - Linux (headless, against the mock + ffmpeg pipeline, full test suite): ✅
 - Windows + real Resolve: **not yet tested** — reports welcome
 - macOS + real Resolve: **not yet tested** — reports welcome
+
+If you have real Resolve, please run through **[VERIFY.md](VERIFY.md)** — a
+step-by-step checklist with pass criteria for every feature. Reporting back
+(pass or fail) is what lets us drop the "untested on real Resolve" caveats.

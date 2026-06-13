@@ -11,7 +11,16 @@ to a clean rough cut.** Open source (MIT), local-first, no telemetry.
 ![panel screenshot placeholder](docs/screenshot-panel.png)
 *(screenshot/GIF placeholder)*
 
-## What it does today (Phase 1)
+## Feature overview
+
+| Tab | What it does | Phase |
+|---|---|---|
+| **Auto-Cut** | One-click raw cut (local silence/VAD), per-format edit profiles, live timeline status | 1, 3 |
+| **Assets** | Connect SFX/VFX folders, local cached index, recommend a list *or* auto-insert on a new track | 4 |
+| **Sound** | Video context (manual or AI-suggested) + compliant background-sound research | 5 |
+| **Settings** | Auto-cut parameters; AI providers (keys, routing, cost) | 1, 2 |
+
+## What it does
 
 - **Dockless panel** ("app in Resolve"): launched from
   `Workspace > Scripts`, opens a local web panel with tabs
@@ -157,11 +166,12 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 |---|---|
 | Resolve **Free vs. Studio** | The panel runs from the Scripts menu, which works in **both** editions. Blackmagic's official *Workflow Integration* docked panels and external scripting are **Studio-only**; a docked Electron panel is a possible later add-on for Studio users. |
 | Linux | Resolve on Linux is Studio-only; the Scripts-menu path should work but is untested. Developed/tested headless on Linux against a mock; **real-Resolve testing so far: none — testers welcome.** |
-| Retimed clips | Phase 1 assumes clip fps == timeline fps. Speed-ramped/retimed clips will cut at wrong positions — avoid running on them for now. |
+| Retimed clips | The cut engine assumes clip fps == timeline fps. Speed-ramped/retimed clips will cut at wrong positions — avoid running on them for now. |
 | Compound/Fusion clips | Skipped (no source media path) and reported in the result. |
 | Audio-only logic | Cuts are based on the audio of the **video clips on track 1**. Separate audio-track analysis comes later. |
-| Trend sounds (TikTok/IG) | There is **no official trend-sound API**. The plugin will never scrape by default; Phase 5 ships royalty-free sources plus an off-by-default, clearly-labelled best-effort module. |
-| AI features | Phase 1 contains **zero** AI/API calls. Phase 2 adds an opt-in provider layer (Claude/OpenAI/OpenRouter/custom). No call is made unless you add a key and a feature that uses it; the raw cut stays 100% local. |
+| Asset auto-insert | The list/recommend mode is verified; the **auto-insert** mode (writing SFX onto a new track) is implemented and mock-tested but **untested on real Resolve** — treat as experimental (see [VERIFY.md](VERIFY.md)). |
+| Trend sounds (TikTok/IG) | There is **no official trend-sound API**. The plugin never scrapes; royalty-free sources are the default, with an off-by-default, clearly-labelled best-effort trend module. |
+| AI features | The raw cut and asset indexing make **zero** API calls. The AI layer (Claude/OpenAI/OpenRouter/custom) is opt-in — no call is made unless you add a key and use a feature that needs it. |
 | Key encryption | Keys go into the OS keychain when one is available (`pip install keyring`). On headless/locked systems they fall back to a `0600` JSON file that is access-restricted but **not encrypted** — the UI says so. Don't store keys on a shared machine without a keychain. |
 
 ## Privacy & security
@@ -188,7 +198,8 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 5. ✅ **Phase 5 — Context & sound:** audience/genre/topic filters with
    AI-suggested values (local signals + optional frames); compliant sound
    research (royalty-free vs. off-by-default trend mode).
-6. **Phase 6 — Polish:** more tests, docs, packaging.
+6. ✅ **Phase 6 — Polish:** test/doc pass, real-Resolve verification
+   checklist ([VERIFY.md](VERIFY.md)), packaging.
 
 ## Development
 
@@ -197,14 +208,38 @@ python3 -m pytest tests/      # 109 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 
-Architecture: `plugin/` (panel + server) → `core/timeline` (defensive
-Resolve API bridge) → `core/analyze` (local audio analysis) → `core/cut`
-(pure cut-list engine) → `core/ai` (provider abstraction, keys, routing,
-costs) → `core/assets` (library index, recommender, placement) →
-`core/context` (local signals, suggest, frames) → `core/sound` (compliant
-research). Everything Resolve-specific is isolated in `core/timeline/bridge.py`
-and AI calls in `core/ai/`; tests run against mocks (`core/timeline/mock.py`,
-mocked HTTP) with no network or Resolve required.
+### Project structure
+
+```
+resolve-ai-editor/
+├─ plugin/              # entry + local web panel
+│  ├─ main.py           #   launch() — from Resolve menu or --demo
+│  ├─ server.py         #   stdlib HTTP server, 127.0.0.1 + token auth
+│  ├─ demo.py           #   synthetic timeline for headless dev
+│  └─ panel/            #   index.html · app.js · style.css
+├─ core/
+│  ├─ timeline/         # ResolveBridge (defensive API wrapper) + mock
+│  ├─ analyze/          # ffmpeg silence / webrtcvad / cache
+│  ├─ cut/              # pure cut-list engine + edit profiles
+│  ├─ ai/               # provider abstraction, keys, routing, costs
+│  ├─ assets/           # library index, recommender, placement
+│  ├─ context/          # local signals, AI suggest, frame sampling
+│  └─ sound/            # compliant sound research
+├─ config/settings.py   # local settings (no secrets)
+├─ tests/               # 109 tests — mocks only, no Resolve/network
+├─ install.py           # writes the Scripts-menu launcher
+└─ README · INSTALL · VERIFY · CHANGELOG · LICENSE
+```
+
+Data flow: `plugin/` (panel + server) → `core/timeline` (the **only**
+Resolve-specific module) → `core/analyze` → `core/cut` → `core/ai` →
+`core/assets` → `core/context` → `core/sound`. Everything Resolve-specific is
+isolated in `core/timeline/bridge.py` and all AI calls in `core/ai/`; tests run
+against mocks (`core/timeline/mock.py`, mocked HTTP) with no network or Resolve
+required.
+
+**Not yet verified on real Resolve** (developed headless) — see
+[VERIFY.md](VERIFY.md) for the tester checklist.
 
 ## License
 
