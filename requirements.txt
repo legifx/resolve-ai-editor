@@ -4,5 +4,10 @@
 # Optional, for better voice activity detection (auto-detected at runtime):
 # webrtcvad==2.0.10
 #
+# Optional AI layer (Phase 2) — each is auto-detected, plugin runs without them:
+# anthropic>=0.40        # Claude provider (official SDK)
+# keyring>=24.0          # OS-keychain key storage (else 0600-file fallback)
+# (OpenAI / OpenRouter / custom endpoints need NO package — stdlib HTTP.)
+#
 # Development / tests:
 # pytest>=7.0

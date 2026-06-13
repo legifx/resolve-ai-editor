@@ -3,9 +3,11 @@
 **AI-assisted auto-editing for DaVinci Resolve — one click from raw footage
 to a clean rough cut.** Open source (MIT), local-first, no telemetry.
 
-> Status: **Phase 1 (MVP)** — the one-click raw cut works end-to-end.
-> AI providers, cut profiles, SFX/VFX assets and sound research are planned
-> phases (see roadmap) and are shown as honest placeholders in the UI.
+> Status: **Phases 1–2 done.** The one-click raw cut works end-to-end
+> (Phase 1) and the multi-provider AI layer with secure key storage, model
+> routing and a cost estimator is in place (Phase 2). Cut profiles, SFX/VFX
+> assets and sound research are planned phases (see roadmap) and are shown
+> as honest placeholders in the UI.
 
 ![panel screenshot placeholder](docs/screenshot-panel.png)
 *(screenshot/GIF placeholder)*
@@ -74,7 +76,8 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 | Compound/Fusion clips | Skipped (no source media path) and reported in the result. |
 | Audio-only logic | Cuts are based on the audio of the **video clips on track 1**. Separate audio-track analysis comes later. |
 | Trend sounds (TikTok/IG) | There is **no official trend-sound API**. The plugin will never scrape by default; Phase 5 ships royalty-free sources plus an off-by-default, clearly-labelled best-effort module. |
-| AI features | Phase 1 contains **zero** AI/API calls. The provider layer (Claude/OpenAI/OpenRouter/custom, key storage in OS keychain, cost estimator) is Phase 2. |
+| AI features | Phase 1 contains **zero** AI/API calls. Phase 2 adds an opt-in provider layer (Claude/OpenAI/OpenRouter/custom). No call is made unless you add a key and a feature that uses it; the raw cut stays 100% local. |
+| Key encryption | Keys go into the OS keychain when one is available (`pip install keyring`). On headless/locked systems they fall back to a `0600` JSON file that is access-restricted but **not encrypted** — the UI says so. Don't store keys on a shared machine without a keychain. |
 
 ## Privacy & security
 
@@ -89,7 +92,7 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 
 1. ✅ **Phase 1 — Foundation:** panel, timeline access, local silence/VAD
    detection, one-click non-destructive raw cut, settings.
-2. **Phase 2 — AI layer:** multi-provider abstraction (Anthropic Claude,
+2. ✅ **Phase 2 — AI layer:** multi-provider abstraction (Anthropic Claude,
    OpenAI, OpenRouter free tier, generic OpenAI-compatible endpoints), key
    management, model routing, token/cost estimator.
 3. **Phase 3 — Cut profiles:** long-form / shorts / ad pacing, hook logic,
@@ -104,14 +107,16 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 ## Development
 
 ```bash
-python3 -m pytest tests/      # 29 tests, needs ffmpeg, no Resolve required
+python3 -m pytest tests/      # 50 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 
 Architecture: `plugin/` (panel + server) → `core/timeline` (defensive
 Resolve API bridge) → `core/analyze` (local audio analysis) → `core/cut`
-(pure cut-list engine). Everything Resolve-specific is isolated in
-`core/timeline/bridge.py`; tests run against `core/timeline/mock.py`.
+(pure cut-list engine) → `core/ai` (provider abstraction, keys, routing,
+costs). Everything Resolve-specific is isolated in `core/timeline/bridge.py`
+and AI calls in `core/ai/`; tests run against mocks (`core/timeline/mock.py`,
+mocked HTTP) with no network or Resolve required.
 
 ## License
 

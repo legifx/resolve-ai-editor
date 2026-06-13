@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.0 — Phase 2: AI Layer (2026-06-13)
+
+- Multi-provider abstraction (`core/ai`): one `AIProvider` interface,
+  `AIResponse` with token + cost tracking.
+- Anthropic provider via the official `anthropic` SDK (optional dep;
+  adaptive thinking on 4.6+ models; default `claude-opus-4-8`).
+- OpenAI / OpenRouter / custom OpenAI-compatible endpoints via a
+  stdlib-only HTTP client (zero hard deps for these).
+- Key storage: OS keychain (`keyring`) preferred, with a real
+  set/get/delete round-trip probe; honest 0600-file fallback labelled
+  "not encrypted". Keys are write-only through the panel API.
+- Model routing by task tier (routine → cheap/free, complex → strong),
+  user-configurable in Settings.
+- Local token/cost estimator with a cached price table (unknown models
+  report `cost=None`, never a fabricated number).
+- Panel: Settings tab gains AI Providers (per-provider key inputs,
+  write-only) + Model Routing (provider/model per tier, custom base URL,
+  live Test buttons reporting tokens + cost).
+- 21 new tests (costs, keys, router, provider guards, mocked
+  OpenAI-compatible parsing + error mapping). 50 total.
+
 ## 0.1.0 — Phase 1: Foundation (2026-06-12)
 
 - ResolveBridge: defensive wrapper over the documented scripting API,

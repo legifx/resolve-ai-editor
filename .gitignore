@@ -1,6 +1,7 @@
 # Secrets & local config — never commit keys
 config/local_settings.json
 config/keys.enc
+keys.json
 *.key
 .env
 .env.*
