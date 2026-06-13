@@ -10,6 +10,7 @@ Editing rationale (documented per prompt section 3C):
   avoids zero-length gaps and duplicate frames in the rebuilt timeline.
 """
 
+import math
 from dataclasses import dataclass
 from typing import List, Tuple
 
@@ -62,13 +63,45 @@ def pad_and_merge(keeps: List[Interval], padding: float,
     return merged
 
 
+def split_long(keeps: List[Interval], max_seconds: float) -> List[Interval]:
+    """Subdivide kept intervals longer than max_seconds into equal pieces.
+
+    Adds edit points (cut points) for pacing — used by Short/Ad profiles so
+    no single clip runs longer than the target. The pieces are contiguous, so
+    playback is seamless: this gives the editor a place to drop a B-roll /
+    pattern interrupt, it does NOT itself create a visual effect.
+    """
+    if not max_seconds or max_seconds <= 0:
+        return keeps
+    out = []
+    for iv in keeps:
+        if iv.duration <= max_seconds:
+            out.append(iv)
+            continue
+        n = int(math.ceil(iv.duration / max_seconds))
+        step = iv.duration / n
+        for i in range(n):
+            s = iv.start + i * step
+            e = iv.end if i == n - 1 else iv.start + (i + 1) * step
+            out.append(Interval(s, e))
+    return out
+
+
 def segments_for_clip(clip: ClipInfo, keeps_file_seconds: List[Interval],
-                      params: CutParams) -> List[Tuple[int, int]]:
+                      params: CutParams, hook_seconds: float = 0.0,
+                      max_segment_seconds=None) -> List[Tuple[int, int]]:
     """Map speech intervals (seconds in the SOURCE FILE) to source-frame
     segments for this timeline clip.
 
     Only the part of the file the clip actually uses matters — a clip
     trimmed to source frames [100, 600) ignores speech outside it.
+
+    hook_seconds (profile feature): force-keep the first N seconds of this
+    clip's used range so the opening hook/cold-open is never cut. Apply only
+    to the first clip of the timeline (caller decides).
+
+    max_segment_seconds (profile feature): subdivide long kept stretches into
+    edit points for pacing (see split_long).
 
     Phase-1 limitation (documented in README): assumes clip fps equals
     timeline fps; retimed/speed-ramped clips are not supported yet.
@@ -76,11 +109,20 @@ def segments_for_clip(clip: ClipInfo, keeps_file_seconds: List[Interval],
     fps = clip.fps
     window = Interval(clip.source_start / fps, clip.source_end / fps)
     keeps = intersect(keeps_file_seconds, window)
+
+    if hook_seconds and hook_seconds > 0:
+        # protect [window.start, window.start + hook] from being cut
+        hook_end = min(window.start + hook_seconds, window.end)
+        keeps = keeps + [Interval(window.start, hook_end)]
+
     keeps = pad_and_merge(keeps, params.padding, window)
+    keeps = split_long(keeps, max_segment_seconds)
 
     segments = []
     for iv in keeps:
-        if iv.duration < params.min_keep:
+        # the forced hook segment is exempt from the min_keep sliver filter
+        in_hook = hook_seconds and iv.start <= window.start + 1e-6
+        if iv.duration < params.min_keep and not in_hook:
             continue
         start_f = int(round(iv.start * fps))
         end_f = int(round(iv.end * fps))

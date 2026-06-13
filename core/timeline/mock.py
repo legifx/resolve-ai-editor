@@ -31,14 +31,20 @@ class MockTimelineItem:
 
 
 class MockTimeline:
-    def __init__(self, name: str, fps: float = 25.0):
+    def __init__(self, name: str, fps: float = 25.0,
+                 width: int = 1920, height: int = 1080):
         self._name = name
         self._fps = fps
+        self._width, self._height = width, height
         self.items: List[MockTimelineItem] = []
 
     def GetName(self): return self._name
     def GetSetting(self, key):
-        return str(self._fps) if key == "timelineFrameRate" else ""
+        return {
+            "timelineFrameRate": str(self._fps),
+            "timelineResolutionWidth": str(self._width),
+            "timelineResolutionHeight": str(self._height),
+        }.get(key, "")
     def GetTrackCount(self, kind): return 1
     def GetItemListInTrack(self, kind, index):
         return self.items if (kind == "video" and index == 1) else []

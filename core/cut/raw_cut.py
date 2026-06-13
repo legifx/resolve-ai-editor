@@ -15,6 +15,7 @@ from core.analyze import audio, cache
 from core.analyze.silence import Interval, detect_silences, invert_silences
 from core.analyze.vad import detect_speech_vad, HAS_WEBRTCVAD
 from core.cut.engine import CutParams, segments_for_clip, summarize
+from core.cut.profiles import aspect_check, get_profile
 from core.timeline.bridge import CapabilityError, ResolveBridge
 
 ProgressFn = Callable[[str], None]
@@ -56,15 +57,33 @@ def _keeps_for_file(path: str, params: CutParams, use_vad: bool,
 
 
 def run_raw_cut(bridge: ResolveBridge, settings: dict,
-                progress: ProgressFn = lambda msg: None) -> dict:
-    """Execute the one-click raw cut. Returns a report dict for the UI."""
-    params = CutParams.from_settings(settings)
+                progress: ProgressFn = lambda msg: None,
+                profile_key: str = None) -> dict:
+    """Execute the one-click raw cut. Returns a report dict for the UI.
+
+    profile_key selects an EditProfile (long_form / short / ad). When given,
+    the profile's tuned cut params, hook protection and pacing apply, and the
+    report carries an aspect-ratio warning + a recommendations checklist.
+    When None, the user's manual Settings params are used (Phase-1 behaviour).
+    """
+    profile = get_profile(profile_key) if profile_key else None
+    if profile is not None:
+        params = profile.cut_params
+        hook_seconds = profile.hook_seconds
+        max_segment = profile.max_segment_seconds
+    else:
+        params = CutParams.from_settings(settings)
+        hook_seconds, max_segment = 0.0, None
     use_vad = bool(settings.get("use_vad", True))
     vad_aggr = int(settings.get("vad_aggressiveness", 2))
 
     clips = bridge.clips()
     if not clips:
         raise CapabilityError("Timeline has no clips on video track 1.")
+    # Capture the SOURCE timeline's resolution now — create_cut_timeline below
+    # switches the current timeline to the new one (Resolve makes a freshly
+    # created timeline current), after which this would read the wrong one.
+    source_resolution = bridge.timeline_resolution()
 
     # analyze each unique file once (multiple clips often share a source)
     keeps_by_file = {}
@@ -78,8 +97,14 @@ def run_raw_cut(bridge: ResolveBridge, settings: dict,
                 clip.file_path, params, use_vad, vad_aggr, progress)
 
     analyzed = [c for c in clips if c.file_path]
+    # the hook lives at the very start of the finished video = the clip with
+    # the smallest timeline_start; protect only that one's opening seconds.
+    first_clip = min(analyzed, key=lambda c: c.timeline_start) if analyzed else None
     all_segments = [
-        segments_for_clip(c, keeps_by_file[c.file_path], params)
+        segments_for_clip(
+            c, keeps_by_file[c.file_path], params,
+            hook_seconds=hook_seconds if c is first_clip else 0.0,
+            max_segment_seconds=max_segment)
         for c in analyzed
     ]
 
@@ -112,4 +137,10 @@ def run_raw_cut(bridge: ResolveBridge, settings: dict,
     report = summarize(analyzed, all_segments)
     report["timeline"] = name
     report["skipped_clips"] = skipped  # e.g. compound/Fusion clips
+    if profile is not None:
+        report["profile"] = profile.label
+        report["aspect_ratio"] = profile.aspect_ratio
+        report["recommendations"] = list(profile.recommendations)
+        warning = aspect_check(source_resolution, profile.aspect_ratio)
+        report["aspect_warning"] = warning  # None when it matches
     return report

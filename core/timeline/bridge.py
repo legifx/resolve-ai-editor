@@ -116,6 +116,18 @@ class ResolveBridge:
         except (TypeError, ValueError):
             return 24.0  # documented Resolve default
 
+    def timeline_resolution(self, timeline: Any = None):
+        """(width, height) of the timeline, or None if unavailable."""
+        timeline = timeline or self.current_timeline()
+        try:
+            w = int(_call(timeline, "GetSetting", "timelineResolutionWidth"))
+            h = int(_call(timeline, "GetSetting", "timelineResolutionHeight"))
+            if w > 0 and h > 0:
+                return (w, h)
+        except (TypeError, ValueError, CapabilityError):
+            pass
+        return None
+
     def project_info(self) -> dict:
         """Compact status blob for the UI (capability probing happens here)."""
         info = {
