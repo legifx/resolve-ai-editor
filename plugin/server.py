@@ -16,12 +16,15 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
 
 from config import settings
+from core.ai import keys as ai_keys
+from core.ai.base import AIError
+from core.ai.router import DEFAULT_ROUTING, TIERS, get_provider_for_tier
 from core.analyze.vad import HAS_WEBRTCVAD
 from core.cut import run_raw_cut
 from core.timeline.bridge import CapabilityError
 
 PANEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "panel")
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 
 _MIME = {".html": "text/html; charset=utf-8",
          ".js": "application/javascript", ".css": "text/css"}
@@ -106,7 +109,33 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(settings.load())
         if path == "/api/job":
             return self._json(self.state.job_status())
+        if path == "/api/ai/status":
+            return self._json(self._ai_status())
         self._json({"error": "not found"}, 404)
+
+    def _ai_status(self):
+        """AI config for the UI. Never returns key values — only whether a
+        key is present, plus per-tier provider availability."""
+        cfg = settings.load()
+        s = ai_keys.status()
+        tiers = {}
+        for tier in TIERS:
+            try:
+                provider = get_provider_for_tier(tier, cfg)
+                ok, reason = provider.available()
+                tiers[tier] = {"provider": provider.name,
+                               "model": provider.model,
+                               "ready": ok, "reason": reason}
+            except AIError as exc:
+                tiers[tier] = {"provider": None, "model": None,
+                               "ready": False, "reason": str(exc)}
+        return {
+            "key_backend": s["backend"],
+            "keys": s["configured"],         # {provider: bool}
+            "routing": cfg.get("ai_routing", DEFAULT_ROUTING),
+            "custom_base_url": cfg.get("ai_custom_base_url", ""),
+            "tiers": tiers,
+        }
 
     def do_POST(self):
         if not self._authorized():
@@ -125,7 +154,41 @@ class _Handler(BaseHTTPRequestHandler):
             if not self.state.start_job():
                 return self._json({"error": "a job is already running"}, 409)
             return self._json({"started": True})
+        if path == "/api/ai/key":
+            return self._ai_set_key(payload)
+        if path == "/api/ai/test":
+            return self._ai_test(payload)
         self._json({"error": "not found"}, 404)
+
+    def _ai_set_key(self, payload):
+        """Store or clear an API key. Write-only — never echoed back."""
+        provider = payload.get("provider")
+        if provider not in ai_keys.PROVIDERS:
+            return self._json({"error": "unknown provider"}, 400)
+        try:
+            ai_keys.set_key(provider, payload.get("key") or "")
+        except ValueError as exc:
+            return self._json({"error": str(exc)}, 400)
+        return self._json({"ok": True, "configured": bool(ai_keys.get_key(provider))})
+
+    def _ai_test(self, payload):
+        """Cheap end-to-end probe of a tier's configured provider."""
+        tier = payload.get("tier")
+        if tier not in TIERS:
+            return self._json({"error": "unknown tier"}, 400)
+        try:
+            provider = get_provider_for_tier(tier, settings.load())
+            resp = provider.complete(
+                "Reply with the single word: ok", max_tokens=16)
+        except AIError as exc:
+            return self._json({"ok": False, "error": str(exc)})
+        return self._json({
+            "ok": True, "provider": resp.provider, "model": resp.model,
+            "reply": resp.text.strip()[:80],
+            "input_tokens": resp.input_tokens,
+            "output_tokens": resp.output_tokens,
+            "cost_usd": resp.cost_usd,
+        })
 
     def _file(self, rel):
         full = os.path.realpath(os.path.join(PANEL_DIR, rel))

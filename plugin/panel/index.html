@@ -105,10 +105,86 @@
     </div>
     <div class="card">
       <h2>AI Providers</h2>
-      <p class="muted">Coming in <b>Phase 2</b>: Claude / OpenAI / OpenRouter /
-        custom endpoints, secure key storage in your OS keychain, model
-        routing and a cost estimator. Phase 1 runs 100% local.</p>
-      <p class="phase-badge">Planned — not yet implemented</p>
+      <p class="muted">Keys are stored <b id="ai-backend">locally</b> and are
+        <b>write-only</b> — the panel can save or clear them but never reads
+        them back. Phase 1 (Auto-Cut) needs none of this; the AI layer powers
+        upcoming cut-assist, asset and sound features.</p>
+
+      <table id="ai-keys-table">
+        <tr>
+          <td>Anthropic (Claude)</td>
+          <td><input type="password" data-provider="anthropic"
+                     placeholder="sk-ant-…" autocomplete="off"></td>
+          <td><span class="keystate" data-state="anthropic">–</span></td>
+          <td><button class="ai-save" data-provider="anthropic">Save</button>
+              <button class="ai-clear" data-provider="anthropic">Clear</button></td>
+        </tr>
+        <tr>
+          <td>OpenAI</td>
+          <td><input type="password" data-provider="openai"
+                     placeholder="sk-…" autocomplete="off"></td>
+          <td><span class="keystate" data-state="openai">–</span></td>
+          <td><button class="ai-save" data-provider="openai">Save</button>
+              <button class="ai-clear" data-provider="openai">Clear</button></td>
+        </tr>
+        <tr>
+          <td>OpenRouter (free tier)</td>
+          <td><input type="password" data-provider="openrouter"
+                     placeholder="sk-or-…" autocomplete="off"></td>
+          <td><span class="keystate" data-state="openrouter">–</span></td>
+          <td><button class="ai-save" data-provider="openrouter">Save</button>
+              <button class="ai-clear" data-provider="openrouter">Clear</button></td>
+        </tr>
+        <tr>
+          <td>Custom (OpenAI-compatible)</td>
+          <td><input type="password" data-provider="custom"
+                     placeholder="api key" autocomplete="off"></td>
+          <td><span class="keystate" data-state="custom">–</span></td>
+          <td><button class="ai-save" data-provider="custom">Save</button>
+              <button class="ai-clear" data-provider="custom">Clear</button></td>
+        </tr>
+      </table>
+      <label class="row" style="margin-top:8px">Custom endpoint base URL
+        <input type="text" id="ai-custom-url" style="width:280px"
+               placeholder="https://my-host/v1">
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>Model Routing</h2>
+      <p class="muted">Route cheap/bulk work to a free or low-cost model and
+        only hard decisions to a strong one — keeps API costs down.</p>
+      <table id="ai-routing-table">
+        <tr><th></th><th>Provider</th><th>Model</th><th></th></tr>
+        <tr>
+          <td>Routine<br><small>asset tags, short labels</small></td>
+          <td><select data-tier="routine" class="route-provider">
+            <option value="openrouter">OpenRouter</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="custom">Custom</option>
+          </select></td>
+          <td><input type="text" data-tier="routine" class="route-model"
+                     placeholder="openrouter/auto"></td>
+          <td><button class="ai-test" data-tier="routine">Test</button></td>
+        </tr>
+        <tr>
+          <td>Complex<br><small>cut &amp; genre decisions</small></td>
+          <td><select data-tier="complex" class="route-provider">
+            <option value="anthropic">Anthropic</option>
+            <option value="openai">OpenAI</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="custom">Custom</option>
+          </select></td>
+          <td><input type="text" data-tier="complex" class="route-model"
+                     placeholder="claude-opus-4-8"></td>
+          <td><button class="ai-test" data-tier="complex">Test</button></td>
+        </tr>
+      </table>
+      <button id="ai-save-routing" class="primary">Save routing</button>
+      <span id="ai-routing-saved" class="hidden">✓ saved</span>
+      <div id="ai-tier-status"></div>
+      <p id="ai-test-result" class="muted"></p>
     </div>
   </section>
 </main>

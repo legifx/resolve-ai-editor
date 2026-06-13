@@ -19,11 +19,21 @@ PROVIDERS = ("anthropic", "openai", "openrouter", "custom")
 
 try:
     import keyring  # type: ignore
-    try:  # probe: some environments have keyring but no usable backend
-        keyring.get_keyring()
-        HAS_KEYRING = True
-    except Exception:
-        HAS_KEYRING = False
+    import keyring.errors  # type: ignore
+
+    def _probe_keyring():
+        # A backend can be "present" yet unusable (no Secret Service daemon,
+        # locked wallet). get_keyring() does NOT catch that — only a real
+        # set/get/delete round trip does. Probe once with a throwaway entry.
+        try:
+            keyring.set_password(SERVICE, "__probe__", "1")
+            ok = keyring.get_password(SERVICE, "__probe__") == "1"
+            keyring.delete_password(SERVICE, "__probe__")
+            return ok
+        except Exception:
+            return False
+
+    HAS_KEYRING = _probe_keyring()
 except ImportError:
     keyring = None
     HAS_KEYRING = False
@@ -54,11 +64,14 @@ def set_key(provider: str, key: str) -> None:
     if not key:
         return delete_key(provider)
     if HAS_KEYRING:
-        keyring.set_password(SERVICE, provider, key)
-    else:
-        data = _read_fallback()
-        data[provider] = key
-        _write_fallback(data)
+        try:
+            keyring.set_password(SERVICE, provider, key)
+            return
+        except Exception:
+            pass  # backend became unusable — fall through to file
+    data = _read_fallback()
+    data[provider] = key
+    _write_fallback(data)
 
 
 def get_key(provider: str) -> Optional[str]:

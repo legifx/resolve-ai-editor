@@ -110,7 +110,102 @@ $("#settings-form").addEventListener("submit", async ev => {
   setTimeout(() => $("#settings-saved").classList.add("hidden"), 1500);
 });
 
+/* ---- AI providers ---- */
+async function loadAiStatus() {
+  let s;
+  try {
+    s = await api("/api/ai/status");
+  } catch (e) { return; }
+  $("#ai-backend").textContent = "in " + s.key_backend;
+  for (const [prov, has] of Object.entries(s.keys)) {
+    const el = document.querySelector('.keystate[data-state="' + prov + '"]');
+    if (el) {
+      el.textContent = has ? "✓ stored" : "not set";
+      el.style.color = has ? "var(--ok)" : "var(--muted)";
+    }
+  }
+  $("#ai-custom-url").value = s.custom_base_url || "";
+  for (const tier of ["routine", "complex"]) {
+    const route = s.routing[tier] || {};
+    const provSel = document.querySelector('.route-provider[data-tier="' + tier + '"]');
+    const modelIn = document.querySelector('.route-model[data-tier="' + tier + '"]');
+    if (provSel && route.provider) provSel.value = route.provider;
+    if (modelIn) modelIn.value = route.model || "";
+  }
+  // per-tier readiness line
+  const status = $("#ai-tier-status");
+  status.innerHTML = "";
+  for (const [tier, t] of Object.entries(s.tiers)) {
+    const div = document.createElement("div");
+    div.className = "muted";
+    div.innerHTML = (t.ready ? "✓ " : "✗ ") + "<b>" + tier + "</b>: " +
+      (t.ready ? (t.provider + " / " + t.model) : t.reason);
+    div.style.color = t.ready ? "var(--ok)" : "var(--muted)";
+    status.appendChild(div);
+  }
+}
+
+document.querySelectorAll(".ai-save").forEach(btn =>
+  btn.addEventListener("click", async () => {
+    const prov = btn.dataset.provider;
+    const input = document.querySelector('input[data-provider="' + prov + '"]');
+    await api("/api/ai/key", {
+      method: "POST", body: JSON.stringify({ provider: prov, key: input.value }),
+    });
+    input.value = "";
+    loadAiStatus();
+  }));
+
+document.querySelectorAll(".ai-clear").forEach(btn =>
+  btn.addEventListener("click", async () => {
+    await api("/api/ai/key", {
+      method: "POST",
+      body: JSON.stringify({ provider: btn.dataset.provider, key: "" }),
+    });
+    loadAiStatus();
+  }));
+
+$("#ai-save-routing").addEventListener("click", async () => {
+  const routing = {};
+  for (const tier of ["routine", "complex"]) {
+    routing[tier] = {
+      provider: document.querySelector('.route-provider[data-tier="' + tier + '"]').value,
+      model: document.querySelector('.route-model[data-tier="' + tier + '"]').value,
+    };
+  }
+  await api("/api/settings", {
+    method: "POST",
+    body: JSON.stringify({
+      ai_routing: routing,
+      ai_custom_base_url: $("#ai-custom-url").value,
+    }),
+  });
+  $("#ai-routing-saved").classList.remove("hidden");
+  setTimeout(() => $("#ai-routing-saved").classList.add("hidden"), 1500);
+  loadAiStatus();
+});
+
+document.querySelectorAll(".ai-test").forEach(btn =>
+  btn.addEventListener("click", async () => {
+    const out = $("#ai-test-result");
+    out.textContent = "testing " + btn.dataset.tier + "…";
+    const r = await api("/api/ai/test", {
+      method: "POST", body: JSON.stringify({ tier: btn.dataset.tier }),
+    });
+    if (r.ok) {
+      const cost = r.cost_usd == null ? "cost unknown"
+        : "$" + r.cost_usd.toFixed(6);
+      out.style.color = "var(--ok)";
+      out.textContent = "✓ " + r.provider + "/" + r.model + " → \"" + r.reply +
+        "\" (" + r.input_tokens + "+" + r.output_tokens + " tok, " + cost + ")";
+    } else {
+      out.style.color = "#e05c5c";
+      out.textContent = "✗ " + r.error;
+    }
+  }));
+
 /* ---- boot ---- */
 refreshStatus();
 loadSettings();
+loadAiStatus();
 setInterval(refreshStatus, 5000);
