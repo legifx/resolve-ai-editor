@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.5.0 — Phase 5: Context & Sound (2026-06-13)
+
+- `core/context/`: auto-suggest audience / genre / topic from **local**
+  signals (clip filenames, counts, duration, fps, resolution — compact,
+  token-sparing) via the AI layer; user edits/overrides every field.
+  Optional sparse frame sampling (ffmpeg → small JPEGs) for
+  vision-capable providers (Anthropic), degrading to metadata-only
+  cleanly. `AnthropicProvider` gained vision (`images=`).
+- `core/sound/`: compliant background-sound research, two modes:
+  - **royalty_free (default)** — 3 context-fitted music directions (AI
+    or static fallback) + curated, real, license-tagged sources
+    (Pixabay, YouTube Audio Library, FMA, Incompetech, ccMixter) with
+    commercial/attribution flags. Never fabricates a track.
+  - **trend (off by default)** — no official trend API exists and the
+    plugin does not scrape. Does nothing unless explicitly enabled AND a
+    permitted source is configured; even then returns search terms only,
+    no fetch.
+- Panel: Sound tab — context fields + AI auto-suggest (frame-sample
+  toggle), royalty-free vs trend modes with the no-scrape disclaimer and
+  per-source licenses.
+- 20 new tests (signals, suggest parse/fallback/vision-gate, frame
+  extraction on real video, sound both modes + compliance guards). 109 total.
+
 ## 0.4.0 — Phase 4: SFX/VFX Assets (2026-06-13)
 
 - `core/assets/index.py`: connect folders, scan audio/video/image,

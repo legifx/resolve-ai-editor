@@ -3,11 +3,10 @@
 **AI-assisted auto-editing for DaVinci Resolve — one click from raw footage
 to a clean rough cut.** Open source (MIT), local-first, no telemetry.
 
-> Status: **Phases 1–4 done.** One-click raw cut (Phase 1), multi-provider
-> AI layer (Phase 2), per-format edit profiles (Phase 3), and an SFX/VFX
-> asset library with list + auto-insert modes (Phase 4). Sound research and
-> the genre/audience context layer are planned phases (see roadmap) and are
-> shown as honest placeholders in the UI.
+> Status: **Phases 1–5 done.** One-click raw cut (Phase 1), multi-provider
+> AI layer (Phase 2), per-format edit profiles (Phase 3), an SFX/VFX asset
+> library (Phase 4), and the genre/audience context layer + compliant sound
+> research (Phase 5). Phase 6 is final polish.
 
 ![panel screenshot placeholder](docs/screenshot-panel.png)
 *(screenshot/GIF placeholder)*
@@ -99,6 +98,35 @@ silently falls back to the local heuristic.
 > verified path; treat auto-insert as experimental until a real-Resolve
 > tester confirms it.
 
+## Context & sound research (Phase 5)
+
+The **Sound** tab carries two related things.
+
+**Video context** — optional *audience / genre / topic* filters. Fill them in
+manually, or hit **Auto-suggest**: the plugin builds a compact, local-only
+description of your timeline (clip filenames, counts, duration, fps,
+resolution — clip names are usually very telling) and asks your AI provider to
+infer the three fields. You edit and confirm; nothing is acted on silently. An
+optional **frame-sample** toggle additionally sends a few small downscaled
+JPEG frames to a vision-capable provider (Anthropic) — deliberately sparse to
+keep token cost low; it falls back to metadata-only if vision isn't available.
+
+**Background sound research** — three music directions for your video, in two
+modes:
+
+- **Royalty-free / commercial (default)** — directions tailored to your
+  context (or a sensible static fallback), each pointing at a **real,
+  license-tagged source** (Pixabay Music, YouTube Audio Library, Free Music
+  Archive, Incompetech, ccMixter) with commercial-use and attribution flags.
+  The license is always shown; the plugin never fabricates a track or a
+  download link, and always reminds you to verify the current per-track terms.
+- **Trend (off by default)** — an honest, clearly-labelled best-effort module.
+  **There is no official, ToS-compliant API for TikTok/Instagram trend
+  sounds, and this plugin does not scrape.** The mode does nothing unless you
+  explicitly enable it *and* configure a source you have the right to query —
+  and even then it only returns search terms for you to check on that source,
+  making no hidden network requests.
+
 ## Installation
 
 See **[INSTALL.md](INSTALL.md)**. Short version:
@@ -157,25 +185,26 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
    recommendations checklist for non-automatable techniques.
 4. ✅ **Phase 4 — Assets:** SFX/VFX folder indexing with cached tags;
    recommendation-list mode *and* auto-insert mode.
-5. **Phase 5 — Context & sound:** audience/genre/topic filters with
-   AI-suggested values; compliant sound research (royalty-free vs. optional
-   trend mode).
+5. ✅ **Phase 5 — Context & sound:** audience/genre/topic filters with
+   AI-suggested values (local signals + optional frames); compliant sound
+   research (royalty-free vs. off-by-default trend mode).
 6. **Phase 6 — Polish:** more tests, docs, packaging.
 
 ## Development
 
 ```bash
-python3 -m pytest tests/      # 89 tests, needs ffmpeg, no Resolve required
+python3 -m pytest tests/      # 109 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 
 Architecture: `plugin/` (panel + server) → `core/timeline` (defensive
 Resolve API bridge) → `core/analyze` (local audio analysis) → `core/cut`
 (pure cut-list engine) → `core/ai` (provider abstraction, keys, routing,
-costs) → `core/assets` (library index, recommender, placement). Everything
-Resolve-specific is isolated in `core/timeline/bridge.py` and AI calls in
-`core/ai/`; tests run against mocks (`core/timeline/mock.py`, mocked HTTP)
-with no network or Resolve required.
+costs) → `core/assets` (library index, recommender, placement) →
+`core/context` (local signals, suggest, frames) → `core/sound` (compliant
+research). Everything Resolve-specific is isolated in `core/timeline/bridge.py`
+and AI calls in `core/ai/`; tests run against mocks (`core/timeline/mock.py`,
+mocked HTTP) with no network or Resolve required.
 
 ## License
 
