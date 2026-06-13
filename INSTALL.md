@@ -25,8 +25,10 @@ cd resolve-ai-editor
 python3 install.py
 ```
 
-`install.py` writes a one-file launcher named **“Resolve AI Editor.py”** into
-Resolve's user scripts folder:
+The installer runs pre-flight checks (Python version, ffmpeg/ffprobe),
+reports which optional packages are present, then writes a one-file launcher
+named **“Resolve AI Editor.py”** into Resolve's scripts folder. It auto-detects
+an existing Resolve data folder and falls back to the user-level default:
 
 | OS | Launcher location |
 |---|---|
@@ -36,6 +38,19 @@ Resolve's user scripts folder:
 
 The launcher only contains the absolute path to your cloned repo — keep the
 repo where it is (or re-run `install.py` after moving it).
+
+**Installer options:**
+
+```bash
+python3 install.py --check       # run checks only, change nothing
+python3 install.py --with-deps   # also pip-install optional AI packages
+python3 install.py --uninstall   # remove the launcher
+```
+
+Optional packages (the plugin runs without them):
+`anthropic` (Claude provider + vision), `keyring` (OS-keychain key storage),
+`webrtcvad` (better speech detection). Install them anytime with `--with-deps`
+or `pip install --user anthropic keyring webrtcvad`.
 
 ## 3. Run it
 

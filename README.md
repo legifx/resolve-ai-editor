@@ -144,7 +144,9 @@ See **[INSTALL.md](INSTALL.md)**. Short version:
 ```bash
 git clone https://github.com/legifx/resolve-ai-editor.git
 cd resolve-ai-editor
-python3 install.py        # writes a launcher into Resolve's Scripts menu
+python3 install.py            # pre-flight checks + writes the Scripts-menu launcher
+# python3 install.py --check       # checks only, change nothing
+# python3 install.py --with-deps   # also install optional AI packages
 ```
 
 Requirements: DaVinci Resolve 18.6+ (Free or Studio), Python 3.6+, ffmpeg.
@@ -205,7 +207,7 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 ## Development
 
 ```bash
-python3 -m pytest tests/      # 117 tests, needs ffmpeg, no Resolve required
+python3 -m pytest tests/      # 126 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.1.0 — Better installer (2026-06-13)
+
+- `install.py` is now a proper installer: pre-flight checks (Python
+  version, ffmpeg/ffprobe on PATH), optional-dependency detection
+  (anthropic / keyring / webrtcvad), and Resolve-data-folder
+  auto-detection (writes to the folder Resolve actually uses, else the
+  user-level default).
+- New flags: `--check` (checks only, no changes), `--with-deps`
+  (pip-install optional packages), `--uninstall` (removes the launcher
+  from every candidate folder, leaves config/keys untouched). Colored,
+  readable output; verifies the launcher after writing.
+- 9 installer tests (paths, Resolve detection, write/verify/uninstall,
+  check mode, launcher compiles). 126 total.
+- INSTALL.md documents the new options.
+
 ## 1.0.0 — Phase 6: Polish (2026-06-13)
 
 - All six planned phases complete; panel version bumped to 1.0.0.

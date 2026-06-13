@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
-"""Installer — writes a small launcher into Resolve's Scripts menu folder.
+"""Installer for the Resolve AI Editor plugin.
 
-Usage:  python3 install.py        (after cloning this repo anywhere)
-        python3 install.py --uninstall
+Writes a small launcher into DaVinci Resolve's Scripts menu and runs
+pre-flight checks (Python, ffmpeg) plus optional-dependency detection.
+
+Usage:
+    python3 install.py                 install the launcher (+ checks)
+    python3 install.py --check         run checks only, change nothing
+    python3 install.py --with-deps     also pip-install optional AI deps
+    python3 install.py --uninstall     remove the launcher
+    python3 install.py --yes           assume yes (non-interactive)
 
 The launcher only embeds the absolute path of this repo and forwards the
-`resolve` object Resolve injects into menu scripts. Works in Resolve FREE
-and STUDIO (the menu-script path is available in both).
+`resolve` object Resolve injects into menu scripts. It works in Resolve FREE
+and STUDIO (the Scripts-menu path is available in both).
 """
 
 import os
+import shutil
+import subprocess
 import sys
 
 REPO = os.path.dirname(os.path.abspath(__file__))
@@ -23,41 +32,231 @@ from plugin.main import launch
 launch(globals().get("resolve"))
 '''
 
+# Optional Python packages: (import name, pip name, what it adds).
+OPTIONAL_DEPS = [
+    ("anthropic", "anthropic", "Claude AI provider (Phase 2/5, incl. vision)"),
+    ("keyring", "keyring", "store API keys in the OS keychain (else 0600 file)"),
+    ("webrtcvad", "webrtcvad", "better speech detection for the raw cut"),
+]
+
+# ---- pretty output --------------------------------------------------------
+
+_USE_COLOR = sys.stdout.isatty() and os.environ.get("NO_COLOR") is None
+
+
+def _c(code, text):
+    return "\033[%sm%s\033[0m" % (code, text) if _USE_COLOR else text
+
+
+def ok(msg):    print("  %s %s" % (_c("32", "✓"), msg))
+def warn(msg):  print("  %s %s" % (_c("33", "!"), msg))
+def fail(msg):  print("  %s %s" % (_c("31", "✗"), msg))
+def info(msg):  print("  %s %s" % (_c("36", "·"), msg))
+def head(msg):  print("\n%s" % _c("1", msg))
+
+
+# ---- platform paths -------------------------------------------------------
 
 def scripts_dirs():
-    """Candidate 'Scripts/Utility' menu folders per OS (user-level first)."""
+    """Candidate 'Scripts/Utility' menu folders, user-level first.
+
+    More than one is returned so install() can prefer a folder whose Resolve
+    parent already exists (i.e. where Resolve actually keeps its data)."""
     home = os.path.expanduser("~")
     if sys.platform == "win32":
-        return [os.path.join(os.environ.get("APPDATA", home),
-                             "Blackmagic Design", "DaVinci Resolve",
-                             "Support", "Fusion", "Scripts", "Utility")]
+        roots = [os.environ.get("APPDATA", os.path.join(home, "AppData", "Roaming")),
+                 os.environ.get("PROGRAMDATA", r"C:\ProgramData")]
+        return [os.path.join(r, "Blackmagic Design", "DaVinci Resolve",
+                             "Support", "Fusion", "Scripts", "Utility")
+                for r in roots]
     if sys.platform == "darwin":
-        return [os.path.join(home, "Library", "Application Support",
-                             "Blackmagic Design", "DaVinci Resolve",
-                             "Fusion", "Scripts", "Utility")]
-    return [os.path.join(home, ".local", "share", "DaVinciResolve",
-                         "Fusion", "Scripts", "Utility")]
+        return [
+            os.path.join(home, "Library", "Application Support",
+                         "Blackmagic Design", "DaVinci Resolve",
+                         "Fusion", "Scripts", "Utility"),
+            os.path.join("/Library", "Application Support",
+                         "Blackmagic Design", "DaVinci Resolve",
+                         "Fusion", "Scripts", "Utility"),
+        ]
+    # Linux (Resolve is Studio-only here, but the path is the same shape)
+    return [
+        os.path.join(home, ".local", "share", "DaVinciResolve",
+                     "Fusion", "Scripts", "Utility"),
+        os.path.join("/opt", "resolve", "Fusion", "Scripts", "Utility"),
+    ]
 
 
-def main():
-    target_dir = scripts_dirs()[0]
-    target = os.path.join(target_dir, LAUNCHER_NAME)
+def _resolve_root(scripts_dir):
+    """The '.../DaVinci Resolve' or '.../DaVinciResolve' ancestor of a
+    scripts dir, used to detect an existing Resolve install."""
+    p = scripts_dir
+    for _ in range(3):  # Utility -> Scripts -> Fusion -> (Resolve root)
+        p = os.path.dirname(p)
+    return p
 
-    if "--uninstall" in sys.argv:
-        if os.path.exists(target):
-            os.remove(target)
-            print("Removed %s" % target)
+
+def preferred_target_dir():
+    """Pick the best scripts dir: the first whose Resolve root already
+    exists; otherwise the first (user-level) candidate."""
+    candidates = scripts_dirs()
+    for d in candidates:
+        if os.path.isdir(_resolve_root(d)):
+            return d, True   # Resolve data folder found
+    return candidates[0], False
+
+
+# ---- checks ---------------------------------------------------------------
+
+def check_python():
+    v = sys.version_info
+    if v < (3, 6):
+        fail("Python %d.%d found — 3.6+ required." % (v[0], v[1]))
+        return False
+    ok("Python %d.%d.%d" % (v[0], v[1], v[2]))
+    return True
+
+
+def check_ffmpeg():
+    found = True
+    for tool in ("ffmpeg", "ffprobe"):
+        path = shutil.which(tool)
+        if path:
+            ok("%s (%s)" % (tool, path))
         else:
-            print("Nothing to remove (%s not found)." % target)
-        return
+            fail("%s not found on PATH" % tool)
+            found = False
+    if not found:
+        info("Install ffmpeg — see INSTALL.md. On macOS GUI apps don't see")
+        info("your shell PATH; install via Homebrew and re-login.")
+    return found
 
-    os.makedirs(target_dir, exist_ok=True)
-    with open(target, "w", encoding="utf-8") as fh:
-        fh.write(LAUNCHER.format(repo=REPO))
-    print("Installed launcher: %s" % target)
-    print("In Resolve: Workspace > Scripts > Utility > Resolve AI Editor")
-    print("(Restart Resolve if the entry does not appear.)")
+
+def check_optional_deps():
+    """Return the list of missing optional pip names."""
+    missing = []
+    for import_name, pip_name, why in OPTIONAL_DEPS:
+        try:
+            __import__(import_name)
+            ok("%s — %s" % (pip_name, why))
+        except Exception:
+            warn("%s missing — %s" % (pip_name, why))
+            missing.append(pip_name)
+    return missing
+
+
+def install_deps(pip_names):
+    if not pip_names:
+        return True
+    head("Installing optional dependencies")
+    info("pip install " + " ".join(pip_names))
+    try:
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", "--user"] + pip_names)
+        ok("optional dependencies installed")
+        return True
+    except (subprocess.CalledProcessError, OSError) as exc:
+        fail("pip install failed: %s" % exc)
+        info("You can install them yourself later; the plugin still runs.")
+        return False
+
+
+# ---- launcher install/uninstall -------------------------------------------
+
+def launcher_path():
+    target_dir, _ = preferred_target_dir()
+    return os.path.join(target_dir, LAUNCHER_NAME)
+
+
+def install_launcher():
+    target_dir, resolve_found = preferred_target_dir()
+    target = os.path.join(target_dir, LAUNCHER_NAME)
+    head("Installing launcher")
+    if resolve_found:
+        ok("found a Resolve data folder")
+    else:
+        warn("no existing Resolve data folder detected — using the default")
+        info("user path. If Resolve is installed elsewhere, the entry may not")
+        info("appear; re-run after launching Resolve once.")
+    try:
+        os.makedirs(target_dir, exist_ok=True)
+        with open(target, "w", encoding="utf-8") as fh:
+            fh.write(LAUNCHER.format(repo=REPO))
+    except OSError as exc:
+        fail("could not write launcher: %s" % exc)
+        return False
+    # verify
+    if os.path.isfile(target):
+        ok("launcher written: %s" % target)
+        return True
+    fail("launcher missing after write — check permissions")
+    return False
+
+
+def uninstall_launcher():
+    head("Uninstalling")
+    removed = False
+    for d in scripts_dirs():
+        target = os.path.join(d, LAUNCHER_NAME)
+        if os.path.exists(target):
+            try:
+                os.remove(target)
+                ok("removed %s" % target)
+                removed = True
+            except OSError as exc:
+                fail("could not remove %s: %s" % (target, exc))
+    if not removed:
+        info("nothing to remove (launcher not found)")
+    info("Config/keys/cache (if any) live in your user config dir and are")
+    info("left untouched. Delete the repo folder to finish uninstalling.")
+
+
+# ---- main -----------------------------------------------------------------
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    flags = set(a for a in argv if a.startswith("--"))
+
+    if "--uninstall" in flags:
+        uninstall_launcher()
+        return 0
+
+    print(_c("1", "Resolve AI Editor — installer"))
+    print("repo: %s" % REPO)
+
+    head("Pre-flight checks")
+    py_ok = check_python()
+    ff_ok = check_ffmpeg()
+
+    head("Optional dependencies")
+    missing = check_optional_deps()
+
+    if "--check" in flags:
+        head("Check-only mode — nothing was changed.")
+        return 0 if (py_ok and ff_ok) else 1
+
+    if not py_ok:
+        head("Python too old — aborting.")
+        return 1
+
+    if missing and "--with-deps" in flags:
+        install_deps(missing)
+    elif missing:
+        info("Run with --with-deps to install them now, or:")
+        info("  %s -m pip install --user %s" % (
+            os.path.basename(sys.executable), " ".join(missing)))
+
+    installed = install_launcher()
+
+    head("Next steps")
+    if not ff_ok:
+        warn("Install ffmpeg before using the raw cut (see above).")
+    info("1. Restart DaVinci Resolve.")
+    info("2. Open a project and a timeline.")
+    info("3. Workspace > Scripts > Utility > Resolve AI Editor")
+    info("   (the panel opens in your browser, localhost only).")
+    print("")
+    return 0 if installed else 1
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
