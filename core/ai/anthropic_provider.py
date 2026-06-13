@@ -25,6 +25,7 @@ _ADAPTIVE_MODELS = ("claude-opus-4-8", "claude-opus-4-7",
 
 class AnthropicProvider(AIProvider):
     name = "anthropic"
+    supports_vision = True  # Claude models accept image content blocks
 
     def __init__(self, model: str = DEFAULT_MODEL):
         self.model = model
@@ -38,15 +39,26 @@ class AnthropicProvider(AIProvider):
         return True, "ok"
 
     def complete(self, prompt: str, system: Optional[str] = None,
-                 max_tokens: int = 1024) -> AIResponse:
+                 max_tokens: int = 1024, images=None) -> AIResponse:
         ok, reason = self.available()
         if not ok:
             raise AIError(reason)
         client = anthropic.Anthropic(api_key=keys.get_key("anthropic"))
+        # Build the user content: optional image blocks (base64) + the text.
+        if images:
+            content = [
+                {"type": "image", "source": {
+                    "type": "base64", "media_type": img["media_type"],
+                    "data": img["data"]}}
+                for img in images
+            ]
+            content.append({"type": "text", "text": prompt})
+        else:
+            content = prompt
         kwargs = dict(
             model=self.model,
             max_tokens=max_tokens,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[{"role": "user", "content": content}],
         )
         if system:
             kwargs["system"] = system
