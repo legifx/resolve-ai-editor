@@ -20,6 +20,8 @@ from core.ai import keys as ai_keys
 from core.ai.base import AIError
 from core.ai.router import DEFAULT_ROUTING, TIERS, get_provider_for_tier
 from core.analyze.vad import HAS_WEBRTCVAD
+from core.assets import build_index, place_assets, recommend
+from core.assets.index import load_index
 from core.cut import run_raw_cut
 from core.cut.profiles import DEFAULT_PROFILE, PROFILES
 from core.timeline.bridge import CapabilityError
@@ -119,7 +121,21 @@ class _Handler(BaseHTTPRequestHandler):
                 "default": DEFAULT_PROFILE,
                 "profiles": [p.to_dict() for p in PROFILES.values()],
             })
+        if path == "/api/assets/status":
+            return self._json(self._assets_status())
         self._json({"error": "not found"}, 404)
+
+    def _assets_status(self):
+        idx = load_index()
+        cfg = settings.load()
+        by_kind = {}
+        for e in idx.values():
+            by_kind[e.get("kind", "?")] = by_kind.get(e.get("kind", "?"), 0) + 1
+        return {
+            "folders": cfg.get("asset_folders", []),
+            "indexed": len(idx),
+            "by_kind": by_kind,
+        }
 
     def _ai_status(self):
         """AI config for the UI. Never returns key values — only whether a
@@ -169,7 +185,68 @@ class _Handler(BaseHTTPRequestHandler):
             return self._ai_set_key(payload)
         if path == "/api/ai/test":
             return self._ai_test(payload)
+        if path == "/api/assets/folders":
+            folders = payload.get("folders")
+            if not isinstance(folders, list):
+                return self._json({"error": "folders must be a list"}, 400)
+            settings.save({"asset_folders": [str(f) for f in folders]})
+            return self._json(self._assets_status())
+        if path == "/api/assets/scan":
+            return self._assets_scan()
+        if path == "/api/assets/recommend":
+            return self._assets_recommend(bool(payload.get("use_ai")))
+        if path == "/api/assets/place":
+            return self._assets_place(bool(payload.get("use_ai")))
         self._json({"error": "not found"}, 404)
+
+    # ---- assets ----
+
+    def _assets_scan(self):
+        folders = settings.load().get("asset_folders", [])
+        if not folders:
+            return self._json({"error": "No folders connected. Add one first."}, 400)
+        try:
+            idx = build_index(folders)
+        except Exception as exc:  # ffprobe/IO — never crash the panel
+            return self._json({"error": "scan failed: %s" % exc}, 500)
+        return self._json(self._assets_status())
+
+    def _recommendations(self, use_ai):
+        """Shared by recommend + place: read timeline, build the SFX script."""
+        idx = load_index()
+        if not idx:
+            raise CapabilityError("Asset library is empty — connect a folder "
+                                  "and scan it first (Assets tab).")
+        clips = self.state.bridge.clips()
+        if not clips:
+            raise CapabilityError("Timeline has no clips on video track 1.")
+        fps = self.state.bridge.timeline_fps()
+        provider = None
+        if use_ai:
+            try:
+                provider = get_provider_for_tier("complex", settings.load())
+                ok, _ = provider.available()
+                if not ok:
+                    provider = None  # silently fall back to heuristic
+            except AIError:
+                provider = None
+        recs = recommend(clips, idx, fps, provider=provider)
+        return recs, idx, fps
+
+    def _assets_recommend(self, use_ai):
+        try:
+            recs, _idx, _fps = self._recommendations(use_ai)
+        except (CapabilityError, Exception) as exc:
+            return self._json({"error": str(exc)})
+        return self._json({"placements": recs, "ai_used": bool(use_ai)})
+
+    def _assets_place(self, use_ai):
+        try:
+            recs, idx, fps = self._recommendations(use_ai)
+            report = place_assets(self.state.bridge, recs, idx, fps)
+        except (CapabilityError, Exception) as exc:
+            return self._json({"error": str(exc)})
+        return self._json({"ok": True, "report": report})
 
     def _ai_set_key(self, payload):
         """Store or clear an API key. Write-only — never echoed back."""

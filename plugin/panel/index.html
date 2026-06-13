@@ -56,10 +56,41 @@
   <section id="tab-assets" class="tab">
     <div class="card">
       <h2>SFX / VFX Library</h2>
-      <p class="muted">Coming in <b>Phase 4</b>: connect local folders, index
-        your effects with cached AI tags, then either auto-place them or get a
-        recommended list (what, where, why) without touching the timeline.</p>
-      <p class="phase-badge">Planned — not yet implemented (no fake buttons here)</p>
+      <p class="muted">Connect folders of sound effects / video assets. The
+        plugin indexes them locally (filename + duration + heuristic tags,
+        cached — never re-sent to any API). Then get a recommended SFX
+        <b>list</b> for your timeline, or <b>auto-insert</b> them on a new
+        audio track.</p>
+
+      <div id="folders-list" class="muted" style="margin-bottom:6px"></div>
+      <label class="row">Add folder
+        <input type="text" id="folder-input" style="width:300px"
+               placeholder="/path/to/sfx">
+        <button id="folder-add">Add</button>
+      </label>
+      <p>
+        <button id="assets-scan" class="primary">⟳ Scan / re-index</button>
+        <span id="assets-count" class="muted"></span>
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Recommend SFX for this timeline</h2>
+      <p class="muted">Reads the cut points on your current timeline and maps
+        them to matching SFX (hook → riser/impact, shot change → transition).</p>
+      <label class="row">
+        <input type="checkbox" id="assets-use-ai">
+        Use AI to refine the picks (needs a configured provider; falls back to
+        the local heuristic if unavailable)
+      </label>
+      <p>
+        <button id="assets-recommend" class="primary">List recommendations</button>
+        <button id="assets-place">Auto-insert on new track</button>
+      </p>
+      <p class="muted" style="font-size:11px">Auto-insert is additive — it adds
+        a dedicated SFX audio track and never deletes anything. Undo via
+        Resolve Undo or by deleting that track. (Untested on real Resolve.)</p>
+      <div id="assets-result"></div>
     </div>
   </section>
 

@@ -27,6 +27,9 @@ DEFAULTS = {
         "complex": {"provider": "anthropic", "model": "claude-opus-4-8"},
     },
     "ai_custom_base_url": "",  # for 'custom' OpenAI-compatible endpoints
+
+    # Assets (Phase 4)
+    "asset_folders": [],       # SFX/VFX library folders to index
 }
 
 

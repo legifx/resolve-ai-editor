@@ -169,6 +169,88 @@ $("#settings-form").addEventListener("submit", async ev => {
   setTimeout(() => $("#settings-saved").classList.add("hidden"), 1500);
 });
 
+/* ---- assets ---- */
+let assetFolders = [];
+async function loadAssets() {
+  let s;
+  try { s = await api("/api/assets/status"); } catch (e) { return; }
+  assetFolders = s.folders || [];
+  const list = $("#folders-list");
+  list.textContent = assetFolders.length
+    ? "Folders: " + assetFolders.join("  ·  ")
+    : "No folders connected yet.";
+  const kinds = Object.entries(s.by_kind || {})
+    .map(([k, n]) => n + " " + k).join(", ");
+  $("#assets-count").textContent = s.indexed
+    ? "  " + s.indexed + " assets indexed (" + kinds + ")" : "";
+}
+
+$("#folder-add").addEventListener("click", async () => {
+  const v = $("#folder-input").value.trim();
+  if (!v) return;
+  assetFolders.push(v);
+  await api("/api/assets/folders", {
+    method: "POST", body: JSON.stringify({ folders: assetFolders }),
+  });
+  $("#folder-input").value = "";
+  loadAssets();
+});
+
+$("#assets-scan").addEventListener("click", async () => {
+  $("#assets-count").textContent = "  scanning…";
+  const r = await api("/api/assets/scan", { method: "POST", body: "{}" });
+  if (r.error) { $("#assets-count").textContent = "  ✗ " + r.error; return; }
+  loadAssets();
+});
+
+function renderPlacements(placements, header) {
+  const out = $("#assets-result");
+  out.textContent = "";
+  const h = document.createElement("p");
+  h.className = "muted"; h.style.marginBottom = "4px";
+  h.textContent = header;
+  out.appendChild(h);
+  const ul = document.createElement("ul");
+  ul.className = "muted"; ul.style.margin = "0 0 0 18px";
+  for (const p of placements) {
+    const li = document.createElement("li");
+    li.textContent = p.timecode + "  " +
+      (p.asset_name ? (p.asset_name + " — " + p.reason)
+                    : ("(" + p.reason + ")"));
+    if (!p.asset_name) li.style.color = "#c98a3a";
+    ul.appendChild(li);
+  }
+  out.appendChild(ul);
+}
+
+$("#assets-recommend").addEventListener("click", async () => {
+  $("#assets-result").textContent = "thinking…";
+  const r = await api("/api/assets/recommend", {
+    method: "POST",
+    body: JSON.stringify({ use_ai: $("#assets-use-ai").checked }),
+  });
+  if (r.error) { $("#assets-result").textContent = "✗ " + r.error; return; }
+  renderPlacements(r.placements,
+    "Recommended SFX" + (r.ai_used ? " (AI-refined):" : " (heuristic):"));
+});
+
+$("#assets-place").addEventListener("click", async () => {
+  $("#assets-result").textContent = "inserting…";
+  const r = await api("/api/assets/place", {
+    method: "POST",
+    body: JSON.stringify({ use_ai: $("#assets-use-ai").checked }),
+  });
+  const out = $("#assets-result");
+  if (r.error) { out.textContent = "✗ " + r.error; return; }
+  const rep = r.report;
+  out.textContent = "✓ Inserted " + rep.placed + " SFX on track " + rep.track +
+    (rep.missing_asset.length
+      ? "  ·  " + rep.missing_asset.length + " cut(s) had no matching asset"
+      : "");
+  out.style.color = "var(--ok)";
+  refreshStatus();
+});
+
 /* ---- AI providers ---- */
 async function loadAiStatus() {
   let s;
@@ -267,5 +349,6 @@ document.querySelectorAll(".ai-test").forEach(btn =>
 refreshStatus();
 loadSettings();
 loadProfiles();
+loadAssets();
 loadAiStatus();
 setInterval(refreshStatus, 5000);
