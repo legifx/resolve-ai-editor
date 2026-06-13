@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.4.0 — Phase 4: SFX/VFX Assets (2026-06-13)
+
+- `core/assets/index.py`: connect folders, scan audio/video/image,
+  ffprobe duration, kind + heuristic category/tags from filename.
+  Persistent JSON index keyed per file by (mtime, size) — re-scan only
+  re-probes changed/new files (tag once, cache forever).
+- `core/assets/match.py`: deterministic recommender mapping timeline cut
+  points to SFX categories (hook → riser/impact, shot change →
+  transition), returning a {timecode, asset, reason} script. Optional
+  LLM refine pass (compact names + markers only, silent heuristic
+  fallback on any error).
+- Two modes, cleanly separated (prompt 3E): **list/script** (recommend,
+  touches nothing) and **auto-insert** (`core/assets/place.py` + bridge
+  `import_media`/`add_audio_track`/`place_audio`). Auto-insert is
+  additive — adds a dedicated SFX audio track, deletes nothing; undo via
+  Resolve Undo or by deleting the track. Untested on real Resolve.
+- Panel: Assets tab — connect folders, scan with live count, list
+  recommendations (AI-refine toggle), or auto-insert.
+- 22 new tests (index/scan/cache/tags, matcher heuristic + rotation +
+  LLM refine/fallback, placement on mock). 89 total.
+
 ## 0.3.0 — Phase 3: Edit Profiles (2026-06-13)
 
 - `core/cut/profiles.py`: three editing profiles with real, documented

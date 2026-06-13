@@ -3,11 +3,11 @@
 **AI-assisted auto-editing for DaVinci Resolve — one click from raw footage
 to a clean rough cut.** Open source (MIT), local-first, no telemetry.
 
-> Status: **Phases 1–3 done.** One-click raw cut (Phase 1), multi-provider
-> AI layer with secure key storage + model routing + cost estimator
-> (Phase 2), and per-format edit profiles with documented heuristics
-> (Phase 3). SFX/VFX assets and sound research are planned phases (see
-> roadmap) and are shown as honest placeholders in the UI.
+> Status: **Phases 1–4 done.** One-click raw cut (Phase 1), multi-provider
+> AI layer (Phase 2), per-format edit profiles (Phase 3), and an SFX/VFX
+> asset library with list + auto-insert modes (Phase 4). Sound research and
+> the genre/audience context layer are planned phases (see roadmap) and are
+> shown as honest placeholders in the UI.
 
 ![panel screenshot placeholder](docs/screenshot-panel.png)
 *(screenshot/GIF placeholder)*
@@ -71,6 +71,34 @@ manual), and music beat-syncing. These appear as a checklist in the result,
 and an aspect-ratio mismatch (e.g. a 16:9 timeline with the Short profile)
 raises a clear warning — the plugin never alters your picture.
 
+## SFX/VFX assets (Phase 4)
+
+Connect one or more folders of sound effects (and video/image assets) in the
+**Assets** tab. The plugin indexes them **locally** — filename, duration
+(ffprobe), type, and a heuristic category/tags derived from the filename
+(`whoosh_transition` → *transition*, `deep_impact` → *impact*, …). The index
+is cached per file and only re-probes changed/new files; nothing is sent to
+any API during indexing.
+
+Then, for your current timeline, two modes (both required by design):
+
+1. **List / script mode** — get a recommended SFX script: *which* effect, at
+   *which* timecode, and *why* (hook → riser/impact, each shot change →
+   transition whoosh). Touches nothing.
+2. **Auto-insert mode** — the same recommendations placed onto a **new,
+   dedicated audio track** at the right frames. Additive: it adds a track and
+   deletes nothing, so undo is Resolve Undo or just deleting that track.
+
+An optional **AI-refine** toggle sends only a compact summary (cut points +
+candidate asset *names* + any genre/audience context — never audio) to your
+configured provider to improve the picks; if no provider is available it
+silently falls back to the local heuristic.
+
+> Auto-insert is **untested on real Resolve** (this repo is developed
+> headless against a mock). The list mode and the index are the safe,
+> verified path; treat auto-insert as experimental until a real-Resolve
+> tester confirms it.
+
 ## Installation
 
 See **[INSTALL.md](INSTALL.md)**. Short version:
@@ -127,8 +155,8 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 3. ✅ **Phase 3 — Cut profiles:** long-form / shorts / ad pacing, hook
    protection, pacing edit points, aspect-ratio warnings, and an honest
    recommendations checklist for non-automatable techniques.
-4. **Phase 4 — Assets:** SFX/VFX folder indexing with cached AI tags;
-   auto-placement *and* recommendation-list mode.
+4. ✅ **Phase 4 — Assets:** SFX/VFX folder indexing with cached tags;
+   recommendation-list mode *and* auto-insert mode.
 5. **Phase 5 — Context & sound:** audience/genre/topic filters with
    AI-suggested values; compliant sound research (royalty-free vs. optional
    trend mode).
@@ -137,16 +165,17 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 ## Development
 
 ```bash
-python3 -m pytest tests/      # 67 tests, needs ffmpeg, no Resolve required
+python3 -m pytest tests/      # 89 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 
 Architecture: `plugin/` (panel + server) → `core/timeline` (defensive
 Resolve API bridge) → `core/analyze` (local audio analysis) → `core/cut`
 (pure cut-list engine) → `core/ai` (provider abstraction, keys, routing,
-costs). Everything Resolve-specific is isolated in `core/timeline/bridge.py`
-and AI calls in `core/ai/`; tests run against mocks (`core/timeline/mock.py`,
-mocked HTTP) with no network or Resolve required.
+costs) → `core/assets` (library index, recommender, placement). Everything
+Resolve-specific is isolated in `core/timeline/bridge.py` and AI calls in
+`core/ai/`; tests run against mocks (`core/timeline/mock.py`, mocked HTTP)
+with no network or Resolve required.
 
 ## License
 
