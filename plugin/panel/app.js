@@ -54,10 +54,35 @@ $("#btn-rawcut").addEventListener("click", async () => {
   $("#job-log").classList.remove("hidden");
   $("#job-log").textContent = "starting…";
   $("#job-report").classList.add("hidden");
-  const res = await api("/api/rawcut", { method: "POST", body: "{}" });
+  const profile = $("#profile-select").value;
+  const res = await api("/api/rawcut", {
+    method: "POST", body: JSON.stringify({ profile }),
+  });
   if (res.error) return jobDone({ error: res.error });
   pollTimer = setInterval(pollJob, 700);
 });
+
+/* ---- edit profiles ---- */
+let profileData = {};
+async function loadProfiles() {
+  let d;
+  try { d = await api("/api/profiles"); } catch (e) { return; }
+  const sel = $("#profile-select");
+  for (const p of d.profiles) {
+    profileData[p.key] = p;
+    const opt = document.createElement("option");
+    opt.value = p.key;
+    opt.textContent = p.label;
+    sel.appendChild(opt);
+  }
+  sel.value = d.default || "";
+  showProfileDesc();
+}
+function showProfileDesc() {
+  const p = profileData[$("#profile-select").value];
+  $("#profile-desc").textContent = p ? (p.description + " · target " + p.aspect_ratio) : "";
+}
+$("#profile-select").addEventListener("change", showProfileDesc);
 
 async function pollJob() {
   const j = await api("/api/job");
@@ -74,14 +99,48 @@ function jobDone(j) {
     rep.querySelector("p").textContent = "✗ " + j.error;
   } else if (j.report) {
     const r = j.report;
-    rep.innerHTML =
-      '<div class="stat"><b>' + r.segments + "</b>segments</div>" +
-      '<div class="stat"><b>' + r.removed_seconds + " s</b>removed</div>" +
-      '<div class="stat"><b>' + r.output_seconds + " s</b>result</div>" +
-      "<p class='muted'>New timeline: <b>" + r.timeline + "</b>" +
+    rep.textContent = "";
+    const stats = document.createElement("div");
+    for (const [v, label] of [[r.segments, "segments"],
+        [r.removed_seconds + " s", "removed"], [r.output_seconds + " s", "result"]]) {
+      const d = document.createElement("div");
+      d.className = "stat";
+      const b = document.createElement("b"); b.textContent = v;
+      d.appendChild(b); d.appendChild(document.createTextNode(label));
+      stats.appendChild(d);
+    }
+    rep.appendChild(stats);
+
+    const meta = document.createElement("p");
+    meta.className = "muted";
+    meta.textContent = "New timeline: " + r.timeline +
+      (r.profile ? "  ·  profile: " + r.profile : "") +
       (r.skipped_clips.length
-        ? "<br>Skipped (no media pool item): " + r.skipped_clips.join(", ")
-        : "") + "</p>";
+        ? "  ·  skipped (no media pool item): " + r.skipped_clips.join(", ") : "");
+    rep.appendChild(meta);
+
+    if (r.aspect_warning) {
+      const w = document.createElement("p");
+      w.className = "error";
+      w.textContent = "⚠ " + r.aspect_warning;
+      rep.appendChild(w);
+    }
+    if (r.recommendations && r.recommendations.length) {
+      const h = document.createElement("p");
+      h.className = "muted";
+      h.style.marginBottom = "2px";
+      h.textContent = "Recommended manual steps for this profile:";
+      rep.appendChild(h);
+      const ul = document.createElement("ul");
+      ul.className = "muted";
+      ul.style.margin = "0 0 0 18px";
+      for (const rec of r.recommendations) {
+        const li = document.createElement("li");
+        li.textContent = rec;
+        ul.appendChild(li);
+      }
+      rep.appendChild(ul);
+    }
     refreshStatus();
   }
 }
@@ -207,5 +266,6 @@ document.querySelectorAll(".ai-test").forEach(btn =>
 /* ---- boot ---- */
 refreshStatus();
 loadSettings();
+loadProfiles();
 loadAiStatus();
 setInterval(refreshStatus, 5000);

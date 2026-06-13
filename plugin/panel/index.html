@@ -40,6 +40,12 @@
         (ffmpeg/VAD — no API costs) and builds a <b>new</b> timeline
         "<i>&lt;name&gt; [AI Raw Cut]</i>". Your original timeline is never
         modified — to undo, simply delete the generated timeline.</p>
+      <label class="row" style="margin-bottom:10px">Edit profile
+        <select id="profile-select" style="margin-left:8px">
+          <option value="">Manual (Settings params)</option>
+        </select>
+      </label>
+      <p id="profile-desc" class="muted" style="margin-top:0"></p>
       <button id="btn-rawcut" class="primary">✂ Create Raw Cut</button>
       <pre id="job-log" class="hidden"></pre>
       <div id="job-report" class="hidden"></div>

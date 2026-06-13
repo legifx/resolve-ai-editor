@@ -21,6 +21,7 @@ from core.ai.base import AIError
 from core.ai.router import DEFAULT_ROUTING, TIERS, get_provider_for_tier
 from core.analyze.vad import HAS_WEBRTCVAD
 from core.cut import run_raw_cut
+from core.cut.profiles import DEFAULT_PROFILE, PROFILES
 from core.timeline.bridge import CapabilityError
 
 PANEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "panel")
@@ -40,11 +41,12 @@ class AppState:
         self.report = None
         self.error = None
 
-    def start_job(self):
+    def start_job(self, profile_key=None):
         with self.lock:
             if self.running:
                 return False
             self.running, self.log, self.report, self.error = True, [], None, None
+            self.profile_key = profile_key
         threading.Thread(target=self._worker, daemon=True).start()
         return True
 
@@ -53,7 +55,8 @@ class AppState:
             with self.lock:
                 self.log.append(msg)
         try:
-            report = run_raw_cut(self.bridge, settings.load(), progress)
+            report = run_raw_cut(self.bridge, settings.load(), progress,
+                                 profile_key=self.profile_key)
             with self.lock:
                 self.report = report
         except (CapabilityError, Exception) as exc:  # never crash the panel
@@ -111,6 +114,11 @@ class _Handler(BaseHTTPRequestHandler):
             return self._json(self.state.job_status())
         if path == "/api/ai/status":
             return self._json(self._ai_status())
+        if path == "/api/profiles":
+            return self._json({
+                "default": DEFAULT_PROFILE,
+                "profiles": [p.to_dict() for p in PROFILES.values()],
+            })
         self._json({"error": "not found"}, 404)
 
     def _ai_status(self):
@@ -151,7 +159,10 @@ class _Handler(BaseHTTPRequestHandler):
         if path == "/api/settings":
             return self._json(settings.save(payload))
         if path == "/api/rawcut":
-            if not self.state.start_job():
+            profile_key = payload.get("profile") or None
+            if profile_key and profile_key not in PROFILES:
+                return self._json({"error": "unknown profile"}, 400)
+            if not self.state.start_job(profile_key):
                 return self._json({"error": "a job is already running"}, 409)
             return self._json({"started": True})
         if path == "/api/ai/key":
