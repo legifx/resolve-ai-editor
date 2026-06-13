@@ -29,7 +29,7 @@ from core.cut.profiles import DEFAULT_PROFILE, PROFILES
 from core.timeline.bridge import CapabilityError
 
 PANEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "panel")
-VERSION = "0.2.0"
+VERSION = "1.0.0"
 
 _MIME = {".html": "text/html; charset=utf-8",
          ".js": "application/javascript", ".css": "text/css"}

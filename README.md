@@ -3,10 +3,11 @@
 **AI-assisted auto-editing for DaVinci Resolve — one click from raw footage
 to a clean rough cut.** Open source (MIT), local-first, no telemetry.
 
-> Status: **Phases 1–5 done.** One-click raw cut (Phase 1), multi-provider
-> AI layer (Phase 2), per-format edit profiles (Phase 3), an SFX/VFX asset
-> library (Phase 4), and the genre/audience context layer + compliant sound
-> research (Phase 5). Phase 6 is final polish.
+> Status: **All six phases done (v1.0.0).** One-click raw cut (1),
+> multi-provider AI layer (2), per-format edit profiles (3), SFX/VFX asset
+> library (4), context layer + compliant sound research (5), and polish +
+> a real-Resolve verification checklist (6). The one thing left is a pass on
+> real Resolve hardware — see [VERIFY.md](VERIFY.md).
 
 ![panel screenshot placeholder](docs/screenshot-panel.png)
 *(screenshot/GIF placeholder)*
@@ -204,7 +205,7 @@ Developer demo without Resolve: `python3 -m plugin.main --demo`
 ## Development
 
 ```bash
-python3 -m pytest tests/      # 109 tests, needs ffmpeg, no Resolve required
+python3 -m pytest tests/      # 117 tests, needs ffmpeg, no Resolve required
 python3 -m plugin.main --demo # run the panel against a mock timeline
 ```
 

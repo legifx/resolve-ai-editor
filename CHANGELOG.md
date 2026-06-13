@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.0.0 — Phase 6: Polish (2026-06-13)
+
+- All six planned phases complete; panel version bumped to 1.0.0.
+- **[VERIFY.md](VERIFY.md)**: step-by-step real-Resolve verification
+  checklist with pass criteria for every feature (this is the one thing
+  the headless dev environment can't do — testers welcome).
+- README: feature/tab overview, full project-structure tree, updated
+  limitations table (asset auto-insert flagged experimental).
+- 8 robustness tests: ffmpeg-missing install hint, corrupt
+  settings/cache fallback, server 404/400 guards, all-GET-endpoints
+  smoke. 117 total.
+- Verified: full suite green, install.py launcher template compiles, all
+  modules byte-compile.
+
 ## 0.5.0 — Phase 5: Context & Sound (2026-06-13)
 
 - `core/context/`: auto-suggest audience / genre / topic from **local**
