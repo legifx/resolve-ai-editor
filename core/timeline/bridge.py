@@ -228,6 +228,64 @@ class ResolveBridge:
                 "AppendToTimeline failed — Resolve rejected the cut list.")
         return new_tl
 
+    # ---------- asset placement (additive: adds, never deletes) ----------
+    #
+    # NOTE: these write to the CURRENT timeline by adding a dedicated audio
+    # track and placing SFX on it. Nothing existing is removed — undo via
+    # Resolve Undo or by deleting the added track. UNTESTED on real Resolve
+    # (this repo is developed headless); verified only against the mock.
+
+    def import_media(self, paths: List[str]) -> dict:
+        """Import files into the Media Pool. Returns {path: media_pool_item}.
+        Imports one at a time so each item maps unambiguously to its path."""
+        media_pool = _call(self.project(), "GetMediaPool")
+        if media_pool is None:
+            raise CapabilityError("Media Pool is not accessible via the API.")
+        out = {}
+        for path in paths:
+            items = _call(media_pool, "ImportMedia", [path])
+            if items:
+                out[path] = items[0]
+        if not out:
+            raise CapabilityError(
+                "Could not import any asset into the Media Pool.")
+        return out
+
+    def add_audio_track(self, timeline: Any = None) -> int:
+        """Add an audio track to the timeline; return its 1-based index."""
+        timeline = timeline or self.current_timeline()
+        if not _call(timeline, "AddTrack", "audio"):
+            raise CapabilityError("Could not add an audio track.")
+        return int(_call(timeline, "GetTrackCount", "audio"))
+
+    def place_audio(self, placements: List[dict]) -> int:
+        """Place audio assets on the current timeline at given record frames.
+
+        placements: [{"item": <mp item>, "record_frame": int,
+                      "duration_frames": int, "track_index": int}, ...]
+        Returns the number of clips placed.
+        """
+        media_pool = _call(self.project(), "GetMediaPool")
+        if media_pool is None:
+            raise CapabilityError("Media Pool is not accessible via the API.")
+        clip_infos = [
+            {
+                "mediaPoolItem": p["item"],
+                "startFrame": 0,
+                "endFrame": max(1, int(p["duration_frames"])),
+                "trackIndex": int(p["track_index"]),
+                "recordFrame": int(p["record_frame"]),
+                "mediaType": 2,  # 2 = audio (1 = video) per Resolve API
+            }
+            for p in placements if p.get("item") is not None
+        ]
+        if not clip_infos:
+            raise CapabilityError("No importable assets to place.")
+        if not _call(media_pool, "AppendToTimeline", clip_infos):
+            raise CapabilityError(
+                "AppendToTimeline (audio) failed — Resolve rejected it.")
+        return len(clip_infos)
+
 
 if sys.version_info < (3, 6):  # Resolve bundles 3.6+; we target 3.6-3.13
     raise RuntimeError("resolve-ai-editor requires Python 3.6 or newer")

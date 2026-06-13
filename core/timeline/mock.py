@@ -37,6 +37,7 @@ class MockTimeline:
         self._fps = fps
         self._width, self._height = width, height
         self.items: List[MockTimelineItem] = []
+        self._audio_tracks = 1
 
     def GetName(self): return self._name
     def GetSetting(self, key):
@@ -45,7 +46,12 @@ class MockTimeline:
             "timelineResolutionWidth": str(self._width),
             "timelineResolutionHeight": str(self._height),
         }.get(key, "")
-    def GetTrackCount(self, kind): return 1
+    def GetTrackCount(self, kind):
+        return self._audio_tracks if kind == "audio" else 1
+    def AddTrack(self, kind):
+        if kind == "audio":
+            self._audio_tracks += 1
+        return True
     def GetItemListInTrack(self, kind, index):
         return self.items if (kind == "video" and index == 1) else []
 
@@ -54,6 +60,14 @@ class MockMediaPool:
     def __init__(self, project):
         self._project = project
         self.append_calls: List[list] = []  # recorded for test assertions
+        self.imported: List[str] = []       # recorded for test assertions
+
+    def ImportMedia(self, paths: list):
+        out = []
+        for p in paths:
+            self.imported.append(p)
+            out.append(MockMediaPoolItem(p, self._project.current_timeline._fps))
+        return out
 
     def CreateEmptyTimeline(self, name: str):
         if any(t.GetName() == name for t in self._project.timelines):
