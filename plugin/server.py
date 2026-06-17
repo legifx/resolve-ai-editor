@@ -29,15 +29,16 @@ from core.cut.profiles import DEFAULT_PROFILE, PROFILES
 from core.timeline.bridge import CapabilityError
 
 PANEL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "panel")
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 _MIME = {".html": "text/html; charset=utf-8",
          ".js": "application/javascript", ".css": "text/css"}
 
 
 class AppState:
-    def __init__(self, bridge):
+    def __init__(self, bridge, allow_any_host=False):
         self.bridge = bridge
+        self.allow_any_host = allow_any_host  # True when bound off-loopback
         self.token = secrets.token_urlsafe(16)
         self.lock = threading.Lock()
         self.running = False
@@ -89,9 +90,14 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _authorized(self):
-        host = (self.headers.get("Host") or "").split(":")[0]
-        if host not in ("127.0.0.1", "localhost"):
-            return False
+        # Host-header check guards against DNS-rebinding when bound to
+        # loopback. When the user explicitly binds off-loopback (--host, e.g.
+        # over Tailscale/LAN), the random token is the protection and the
+        # host check is relaxed.
+        if not self.state.allow_any_host:
+            host = (self.headers.get("Host") or "").split(":")[0]
+            if host not in ("127.0.0.1", "localhost"):
+                return False
         token = (self.headers.get("X-Token")
                  or parse_qs(urlparse(self.path).query).get("token", [""])[0])
         return secrets.compare_digest(token, self.state.token)
@@ -367,12 +373,33 @@ class _ThreadingServer(socketserver.ThreadingMixIn, HTTPServer):
     allow_reuse_address = True
 
 
-def serve(bridge, port=0):
-    """Start the panel server on 127.0.0.1. Returns (server, url, state).
+def _display_host(bind_host):
+    """A reachable IP to show in the URL when bound to 0.0.0.0/::."""
+    if bind_host not in ("0.0.0.0", "::", ""):
+        return bind_host
+    import socket
+    try:  # the connect() doesn't send anything; it just picks the route IP
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except OSError:
+        return "127.0.0.1"
+
+
+def serve(bridge, port=0, host="127.0.0.1"):
+    """Start the panel server. Returns (server, url, state).
+
+    host="127.0.0.1" (default) is loopback-only — the safe default.
+    host="0.0.0.0" binds all interfaces (reachable over LAN/Tailscale); the
+    host-header check is then relaxed and the random token is the guard.
     port=0 lets the OS pick a free port."""
-    state = AppState(bridge)
+    allow_any_host = host not in ("127.0.0.1", "localhost")
+    state = AppState(bridge, allow_any_host=allow_any_host)
     handler = type("BoundHandler", (_Handler,), {"state": state})
-    server = _ThreadingServer(("127.0.0.1", port), handler)
-    url = "http://127.0.0.1:%d/?token=%s" % (server.server_address[1], state.token)
+    server = _ThreadingServer((host, port), handler)
+    shown = _display_host(host)
+    url = "http://%s:%d/?token=%s" % (shown, server.server_address[1], state.token)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server, url, state

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — Network-reachable serving (--host) (2026-06-14)
+
+- `python3 -m plugin.main --host <ip>` binds the panel off-loopback so you
+  can reach it over LAN/Tailscale (e.g. `--host 0.0.0.0`, or a specific
+  Tailscale IP for an exact URL). Default stays loopback-only.
+- When bound off-loopback the DNS-rebinding host-header check is relaxed
+  and the random session token is the guard (static UI stays public, every
+  `/api/*` call still needs the token). 2 tests pin this down. 130 total.
+
 ## 1.1.1 — Fix: unstyled panel / dead buttons (2026-06-13)
 
 - **Bug:** the panel loaded as unstyled HTML and no buttons worked. The

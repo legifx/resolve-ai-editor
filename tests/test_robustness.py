@@ -141,3 +141,42 @@ def test_api_still_requires_token(panel):
         assert False, "API should reject a token-less request"
     except urllib.error.HTTPError as e:
         assert e.code == 403
+
+
+def test_loopback_default_strict_host():
+    """Default bind keeps the host-header check (DNS-rebinding guard)."""
+    from plugin.server import serve
+    from core.timeline.mock import MockResolve
+    from core.timeline.bridge import ResolveBridge
+    server, url, state = serve(ResolveBridge(MockResolve.with_demo_timeline()))
+    try:
+        assert state.allow_any_host is False
+        assert url.startswith("http://127.0.0.1:")
+    finally:
+        server.shutdown()
+
+
+def test_off_loopback_relaxes_host_but_keeps_token():
+    """--host (off-loopback) relaxes the host check; token still required."""
+    import urllib.request
+    import urllib.error
+    from plugin.server import serve
+    from core.timeline.mock import MockResolve
+    from core.timeline.bridge import ResolveBridge
+    server, url, state = serve(
+        ResolveBridge(MockResolve.with_demo_timeline()), host="0.0.0.0")
+    try:
+        assert state.allow_any_host is True
+        base = url.split("/?")[0]
+        # static loads without token
+        assert urllib.request.urlopen(base + "/static/app.js").status == 200
+        # api needs token even off-loopback
+        try:
+            urllib.request.urlopen(base + "/api/status")
+            assert False, "api should require token"
+        except urllib.error.HTTPError as e:
+            assert e.code == 403
+        assert urllib.request.urlopen(
+            base + "/api/status?token=" + state.token).status == 200
+    finally:
+        server.shutdown()
